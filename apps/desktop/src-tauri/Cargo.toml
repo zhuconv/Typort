@@ -10,6 +10,13 @@ rust-version = "1.77"
 name = "typort_desktop_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+# Override the default binary name (`typort-desktop`) so macOS shows "Typort"
+# in the dock during `tauri dev`. In production builds the .app bundle's
+# Info.plist already uses productName, so this only matters for dev mode.
+[[bin]]
+name = "Typort"
+path = "src/main.rs"
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
