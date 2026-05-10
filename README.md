@@ -42,7 +42,19 @@ The desktop app exposes a hub on `127.0.0.1:17887`. The CLI connects to it, send
 
 ## Quick start (over SSH)
 
+The remote server only needs Node ≥18. No `pnpm`, no `npm install`, no toolchain — just one bundled `.cjs` file.
+
 ```bash
+# === one-time: ship the CLI to the remote ===
+# (locally) build a single-file bundle (~265 KB, includes ws/zod/file-session/protocol)
+pnpm bundle:cli
+
+# scp it to somewhere on PATH on the remote
+scp packages/cli/dist/typort.bundle.cjs user@server:~/.local/bin/typort
+ssh user@server "chmod +x ~/.local/bin/typort"
+# (or any other dir; just make sure it's on your remote $PATH)
+
+# === per-session ===
 # 1. on local laptop: keep Typort Desktop running
 pnpm tauri:dev
 
@@ -51,6 +63,7 @@ ssh -R 17887:127.0.0.1:17887 user@server
 
 # 3. on remote server: open the file
 export TYPORT_TOKEN=<copy-from-Typort-status-window>
+typort doctor                     # sanity-check tunnel + token
 typort open /remote/path/notes.md
 ```
 
@@ -72,4 +85,5 @@ pnpm typecheck            # tsc --noEmit on each package
 pnpm tauri:dev            # run desktop app in dev mode
 pnpm tauri:build          # build production desktop app
 pnpm cli -- open file.md  # run CLI from the workspace
+pnpm bundle:cli           # produce dist/typort.bundle.cjs (single file, scp to remote)
 ```
