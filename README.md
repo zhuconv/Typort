@@ -24,13 +24,11 @@ bin/typort           pre-built single-file CLI bundle (committed; ~265 KB)
 
 ## Quick start (over SSH)
 
-The remote only needs **Node ≥18**. No `pnpm`, no `npm install` — `bin/typort` is a self-contained bundle.
+The remote only needs **Node ≥18**. No `pnpm`, no `npm install`, no clone.
 
 ```bash
 # === one-time, on the remote ===
-git clone https://github.com/zhuconv/Typort.git ~/typort
-ln -s ~/typort/bin/typort ~/.local/bin/typort   # any dir on $PATH
-typort --version
+curl -fsSL https://raw.githubusercontent.com/zhuconv/Typort/main/install.sh | bash
 
 # === per-session ===
 # 1. local: keep Typort Desktop running (token visible in its Welcome window)
@@ -40,12 +38,12 @@ pnpm install && pnpm tauri:dev
 ssh -R 17887:127.0.0.1:17887 user@server
 
 # 3. remote
-export TYPORT_TOKEN=<paste-from-Welcome-window>     # put in ~/.bashrc
-typort doctor                                       # expect "Hub reachable: yes"
+export TYPORT_TOKEN=<paste-from-Welcome-window>   # add to ~/.bashrc to persist
+typort doctor                                     # expect "Hub reachable: yes"
 typort open /home/user/notes.md
 ```
 
-The token is generated once and persisted at `~/Library/Application Support/dev.typort.desktop/config.json`; it doesn't change across restarts.
+`install.sh` downloads `bin/typort` into `~/.typort/bin/` and symlinks it to `~/.local/bin/typort`. Re-run it to update. The TYPORT_TOKEN above is generated once by Typort Desktop and persists at `~/Library/Application Support/dev.typort.desktop/config.json`.
 
 ## Conflict handling
 
