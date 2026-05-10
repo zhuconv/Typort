@@ -1,82 +1,113 @@
+<img src="apps/desktop/src-tauri/icons/128x128@2x.png" width="96" alt="Typort" align="right" />
+
 # Typort
 
-Open a remote Markdown file from an SSH shell and edit it natively on your local machine. Saves go back to the original remote path, atomically and hash-checked.
+**Edit remote markdown files like they're local.**
 
-```text
-remote shell  ─►  typort open file.md
-                       │  (SSH reverse tunnel: -R 17887:127.0.0.1:17887)
-                       ▼
-local laptop  ─►  Typort Desktop (Tauri)  ─►  native editor (typora-web)
-                                                      │
-                                                      ▼
-                                             atomic save back to remote
-```
+You SSH into a server. You want to update a README, capture meeting notes, draft a paper section. You open `vim`… and immediately remember how unfun markdown is without a real editor. Headings stay flat. Lists don't auto-format. Bold and italic stay as `**` and `*`. Tables render as ASCII art.
 
-## Layout
-
-```text
-apps/desktop/        Tauri v2 app (Rust hub + Vite/React frontend)
-packages/protocol/   zod schemas for the WS wire protocol
-packages/file-session/  hash + atomic write + polling watcher (used by the agent)
-packages/cli/        `typort` CLI / agent
-bin/typort           pre-built single-file CLI bundle (committed; ~265 KB)
-```
-
-## Quick start (over SSH)
-
-The remote only needs **Node ≥18**. No `pnpm`, no `npm install`, no clone.
+Typort fixes that.
 
 ```bash
-# === one-time, on the remote ===
+# on the server
+$ typort open notes.md
+opened: /home/you/notes.md
+$
+```
+
+A native editor window pops open on your laptop with `notes.md` already loaded — full WYSIWYG markdown. Headings render at heading size. Italic *closes* into italic the second you type the closing asterisk. Lists nest the way they look in the rendered output. You type. Saves go back to the remote file, atomically, hash-checked. Your terminal prompt comes right back; the editor session lives in the background until you close it.
+
+One command. Native editing. No per-file setup.
+
+## Who is this for
+
+You edit markdown on remote servers and your current options aren't great.
+
+- **Researchers** drafting papers on a GPU box
+- **Engineers** maintaining READMEs / runbooks / configs on production servers
+- **Anyone** who SSHs more than they'd like and writes more than `git commit -m`
+
+If your current stack is `vim`-and-tears, VSCode Remote-SSH waiting 12 seconds to reconnect, or the eternal `scp` ↔ edit ↔ `scp` shuffle — this is for you.
+
+## How it compares
+
+|                                | **Typort** | vim/nano | VSCode Remote | sshfs |
+| ------------------------------ | :--------: | :------: | :-----------: | :---: |
+| WYSIWYG markdown               |     ✅     |    ❌    |    preview pane    | depends |
+| Per-file setup                 |  one command  |  ok  | open folder + handshake | mount tree |
+| Handles concurrent remote edits | diff view + 3-way merge | overwrites | depends | overwrites |
+| Atomic save                    |     ✅     |    ✅    |       ✅      |  fs-dep |
+| Remote install footprint       |  265 KB, no toolchain  | already there | server-side VSCode (~500 MB) | sshfs binary |
+| Terminal stays free after open |     ✅     |    ❌    |      n/a      |  n/a  |
+
+## Quick start
+
+**Local Mac (one time):**
+
+```bash
+git clone https://github.com/zhuconv/Typort.git ~/typort && cd ~/typort
+pnpm install && pnpm tauri:build && pnpm install:app
+```
+
+Typort lives in the menu bar — no Dock clutter when idle. The Welcome window shows your auth token and the SSH tunnel command to copy.
+
+**Remote server (one time):**
+
+```bash
 curl -fsSL https://raw.githubusercontent.com/zhuconv/Typort/main/install.sh | bash
+echo 'export TYPORT_TOKEN=<paste-from-Welcome-window>' >> ~/.bashrc
+```
 
-# === per-session ===
-# 1. local: keep Typort Desktop running (token visible in its Welcome window)
-pnpm install && pnpm tauri:dev
+**Per session:**
 
-# 2. local: open the SSH reverse tunnel
+```bash
+# local: open the SSH reverse tunnel
 ssh -R 17887:127.0.0.1:17887 user@server
 
-# 3. remote
-export TYPORT_TOKEN=<paste-from-Welcome-window>   # add to ~/.bashrc to persist
-typort doctor                                     # expect "Hub reachable: yes"
-typort open /home/user/notes.md
+# remote: open any markdown file
+typort open path/to/file.md
 ```
 
-`install.sh` downloads `bin/typort` into `~/.typort/bin/` and symlinks it to `~/.local/bin/typort`. Re-run it to update. The TYPORT_TOKEN above is generated once by Typort Desktop and persists at `~/Library/Application Support/dev.typort.desktop/config.json`.
+The editor pops up. You type. The terminal prompt is already back. When you close the window, the remote agent exits cleanly.
 
-## App lifecycle on macOS
+## What you get
 
-Typort Desktop runs as a menu-bar/accessory app: **no Dock icon while idle**. The Dock icon appears only when at least one editor session is open (`typort open …` from a remote), and disappears when the last session window closes.
+- **WYSIWYG markdown** powered by [typora-web](https://github.com/Yuyz0112/typora-web) — headings, emphasis, code, links, lists, tables, task lists, footnotes, all rendered as you type
+- **Safe-by-default writes** — atomic `tmp + rename + fsync`, mode/owner preserved, base-hash check before every save so a concurrent remote edit can never be silently clobbered
+- **Three-way conflict resolution** — when remote diverges, you see a side-by-side diff and pick: *Reload remote*, *Keep mine as `.conflict.md`*, or *Edit & merge* with git-style conflict markers
+- **Daemon-style lifecycle on macOS** — the app sits in the menu bar; the Dock icon only appears while you're actually editing
+- **Zero remote toolchain** — one 265 KB Node script ships everything; works on any server with Node ≥18
+- **Localhost-bound hub** — the editor process listens only on `127.0.0.1`. The remote agent reaches it through your SSH reverse tunnel. Nothing crosses the network beyond what `ssh` already authenticated.
 
-- Closing the Welcome window with the red ✕ **hides** it; the hub keeps running so remote `typort open` still works.
-- Subsequent `pnpm tauri:dev` (or `open Typort.app` in production) brings the Welcome window back via single-instance handoff — no second daemon is started.
-- Cmd+Q quits for real.
+## How it works
 
-## Conflict handling
-
-When the remote file changes between open and save, the editor refuses silent overwrite and shows three options:
-
-- **Reload remote** — discard local edits, load the new remote version
-- **Keep mine as `.conflict.md`** — atomically write your draft to a sibling `<file>.typort-conflict-<ts>.md` next to the original; reload the remote into the editor
-- **Edit & merge** — open a textarea pre-filled with `<<<<<<<` / `=======` / `>>>>>>>` markers; Save is gated on all markers being removed
-
-## Scripts
-
-```bash
-pnpm install         # install workspace deps
-pnpm build           # tsc all packages
-pnpm test            # 53 unit tests (protocol, file-session, cli, diff)
-pnpm test:cli-integration  # 6 mock-hub round-trip tests
-pnpm tauri:dev       # run desktop app in dev mode
-pnpm bundle:cli      # rebuild bin/typort (after CLI source changes)
+```text
+remote shell  ──►  typort open file.md
+                       │  SSH reverse tunnel: -R 17887:127.0.0.1:17887
+                       ▼
+local laptop  ──►  Typort.app  ──►  native WYSIWYG editor window
+                                          │
+                                          ▼
+                                  atomic save back to remote path
 ```
 
-After editing CLI source, regenerate the committed bundle:
-```bash
-pnpm bundle:cli && git add bin/typort && git commit -m "..." && git push
-```
+The remote `typort` agent reads the file, computes a SHA-256, and connects to a localhost WebSocket hub that lives inside Typort.app on your Mac. The hub creates an editor window, streams the contents in, and routes save requests back through the same WebSocket. The agent handles the actual disk I/O on the remote side — your local app never reaches across the network beyond `127.0.0.1`.
+
+For the design rationale, threat model, and what's intentionally out of scope, see [`plan.md`](./plan.md).
 
 ## Status
 
-MVP covering plan milestones 0–4. See [`plan.md`](./plan.md) for the full design and what's intentionally out of scope.
+Working end-to-end on macOS. The full happy path — open, edit, save, conflict-resolve over a real SSH tunnel — is the standard development workflow.
+
+Roadmap (not promises, just direction):
+
+- Code-signing so the `.app` distributes without `xattr -c`
+- Linux desktop bundle
+- Tray menu with "Open recent files"
+- A real `.dmg` installer page
+
+If something breaks or feels slow on a long-RTT tunnel, please [open an issue](https://github.com/zhuconv/Typort/issues) — I want to know.
+
+## License
+
+MIT.
