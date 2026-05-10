@@ -1,5 +1,5 @@
 <h1 align="center">
-  <img src="apps/desktop/src-tauri/icons/128x128@2x.png" width="120" alt="" />
+  <img src="apps/desktop/src-tauri/icons/icon-hero.png" width="120" alt="" /><br />
   Typort
 </h1>
 
