@@ -8,7 +8,7 @@ mod window;
 use std::sync::Arc;
 
 use parking_lot::Mutex;
-use tauri::Manager;
+use tauri::{Manager, RunEvent, WindowEvent};
 
 use crate::config::AppConfig;
 use crate::session::SessionRegistry;
@@ -27,6 +27,12 @@ pub fn run() {
     let _ = env_logger::try_init();
 
     tauri::Builder::default()
+        // Subsequent invocations of `pnpm tauri:dev` (or any second launch of the
+        // binary) hit this callback inside the already-running instance. We
+        // bring the welcome window forward instead of starting a second daemon.
+        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            show_welcome_window(app);
+        }))
         .setup(|app| {
             let config = AppConfig::load_or_init(&app.path())?;
             let registry = Arc::new(Mutex::new(SessionRegistry::new()));
@@ -37,6 +43,16 @@ pub fn run() {
                 hub_address: parking_lot::Mutex::new(None),
             };
             app.manage(state);
+
+            // Start as a menu-bar/accessory app: hub runs, welcome window can
+            // appear, but no Dock icon. We bump to Regular when the first
+            // editor session opens (see window.rs::ensure_session_window) and
+            // back to Accessory when the last session closes
+            // (see commands.rs::close_session_internal).
+            #[cfg(target_os = "macos")]
+            {
+                let _ = app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+            }
 
             let app_handle = app.handle().clone();
             let registry_for_hub = registry.clone();
@@ -57,6 +73,17 @@ pub fn run() {
 
             Ok(())
         })
+        // Welcome window's red close button hides the window instead of
+        // quitting the app — the hub stays alive so remote `typort open`
+        // can still bring up editor windows.
+        .on_window_event(|window, event| {
+            if window.label() == "main" {
+                if let WindowEvent::CloseRequested { api, .. } = event {
+                    api.prevent_close();
+                    let _ = window.hide();
+                }
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             commands::get_app_status,
             commands::copy_tunnel_help,
@@ -68,6 +95,27 @@ pub fn run() {
             commands::close_session,
             commands::save_as_conflict,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|_app, event| {
+            // Default Tauri behavior on macOS already keeps the process alive
+            // when the last visible window closes, but we make it explicit:
+            // the only legitimate exit is Cmd+Q (which produces ExitRequested
+            // with code Some(0) — we let that through).
+            if let RunEvent::ExitRequested { api, code, .. } = event {
+                if code.is_none() {
+                    api.prevent_exit();
+                }
+            }
+        });
+}
+
+/// Bring the welcome window to the front. Used by the single-instance plugin
+/// callback when a second `pnpm tauri:dev` is invoked.
+fn show_welcome_window(app: &tauri::AppHandle) {
+    if let Some(w) = app.get_webview_window("main") {
+        let _ = w.unminimize();
+        let _ = w.show();
+        let _ = w.set_focus();
+    }
 }

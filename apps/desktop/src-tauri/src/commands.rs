@@ -247,17 +247,23 @@ pub async fn reload_session(
 
 #[tauri::command]
 pub async fn close_session(
+    app: AppHandle,
     state: State<'_, AppState>,
     session_id: String,
 ) -> Result<(), String> {
-    close_session_internal(state.registry.clone(), &session_id).await;
+    close_session_internal(&app, state.registry.clone(), &session_id).await;
     Ok(())
 }
 
 /// Shared cleanup used by both the explicit close_session command (in-app
 /// "Close" button) and the OS-level window-destroyed event handler.
 /// Idempotent: if the session is already gone, this is a no-op.
+///
+/// Side effect: when this drops the session count to 0, the macOS app flips
+/// back to menu-bar/accessory mode (no Dock icon). The complement is in
+/// window::ensure_session_window when the count goes 0→1.
 pub(crate) async fn close_session_internal(
+    app: &AppHandle,
     registry: std::sync::Arc<parking_lot::Mutex<crate::session::SessionRegistry>>,
     session_id: &str,
 ) {
@@ -273,8 +279,21 @@ pub(crate) async fn close_session_internal(
             }))
             .await;
     }
-    let mut reg = registry.lock();
-    reg.remove(session_id);
+    let remaining = {
+        let mut reg = registry.lock();
+        reg.remove(session_id);
+        reg.len()
+    };
+    #[cfg(target_os = "macos")]
+    {
+        if remaining == 0 {
+            let _ = app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (app, remaining);
+    }
 }
 
 #[derive(Debug, Serialize)]

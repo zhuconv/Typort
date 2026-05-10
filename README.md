@@ -45,6 +45,14 @@ typort open /home/user/notes.md
 
 `install.sh` downloads `bin/typort` into `~/.typort/bin/` and symlinks it to `~/.local/bin/typort`. Re-run it to update. The TYPORT_TOKEN above is generated once by Typort Desktop and persists at `~/Library/Application Support/dev.typort.desktop/config.json`.
 
+## App lifecycle on macOS
+
+Typort Desktop runs as a menu-bar/accessory app: **no Dock icon while idle**. The Dock icon appears only when at least one editor session is open (`typort open …` from a remote), and disappears when the last session window closes.
+
+- Closing the Welcome window with the red ✕ **hides** it; the hub keeps running so remote `typort open` still works.
+- Subsequent `pnpm tauri:dev` (or `open Typort.app` in production) brings the Welcome window back via single-instance handoff — no second daemon is started.
+- Cmd+Q quits for real.
+
 ## Conflict handling
 
 When the remote file changes between open and save, the editor refuses silent overwrite and shows three options:

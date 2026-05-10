@@ -21,6 +21,19 @@ pub fn ensure_session_window(
         .resizable(true)
         .build()?;
 
+    // First session window opening flips the app from menu-bar/accessory mode
+    // (no Dock icon) to a regular Dock-visible app. Cleanup in
+    // commands::close_session_internal flips it back when the last session
+    // closes.
+    #[cfg(target_os = "macos")]
+    {
+        let state: tauri::State<crate::AppState> = app.state();
+        let session_count = state.registry.lock().len();
+        if session_count == 1 {
+            let _ = app.set_activation_policy(tauri::ActivationPolicy::Regular);
+        }
+    }
+
     // When the user closes this window via the OS (red close button), we still
     // need to tell the remote agent to exit. Without this, the agent's
     // `typort open` process keeps running and holds the file watcher.
@@ -32,7 +45,7 @@ pub fn ensure_session_window(
             let sid = session_id_for_close.clone();
             tauri::async_runtime::spawn(async move {
                 let state: tauri::State<crate::AppState> = app.state();
-                crate::commands::close_session_internal(state.registry.clone(), &sid).await;
+                crate::commands::close_session_internal(&app, state.registry.clone(), &sid).await;
             });
         }
     });
