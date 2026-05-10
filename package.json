@@ -13,7 +13,7 @@
     "typecheck": "pnpm -r --filter './packages/*' typecheck",
     "tauri:dev": "pnpm --filter @typort/desktop tauri dev",
     "tauri:build": "pnpm --filter @typort/desktop tauri build",
-    "install:app": "pkill -f 'Typort' 2>/dev/null; rm -rf /Applications/Typort.app && cp -r apps/desktop/src-tauri/target/release/bundle/macos/Typort.app /Applications/ && xattr -dr com.apple.quarantine /Applications/Typort.app && open /Applications/Typort.app",
+    "install:app": "pkill -f 'Typort' 2>/dev/null; rm -rf /Applications/Typort.app && cp -r apps/desktop/src-tauri/target/release/bundle/macos/Typort.app /Applications/ && (xattr -c /Applications/Typort.app 2>/dev/null || true) && open /Applications/Typort.app",
     "cli": "node packages/cli/dist/bin/typort.js",
     "bundle:cli": "pnpm --filter @typort/cli bundle"
   },
