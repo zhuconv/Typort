@@ -1,8 +1,11 @@
-<img src="apps/desktop/src-tauri/icons/128x128@2x.png" width="96" alt="Typort" align="right" />
+<h1 align="center">
+  <img src="apps/desktop/src-tauri/icons/128x128@2x.png" width="120" alt="" />
+  Typort
+</h1>
 
-# Typort
 
-**Edit remote markdown files like they're local.**
+<p align="center"><strong>Edit remote markdown files like they're local.</strong></p>
+
 
 You SSH into a server. You want to update a README, capture meeting notes, draft a paper section. You open `vim`… and immediately remember how unfun markdown is without a real editor. Headings stay flat. Lists don't auto-format. Bold and italic stay as `**` and `*`. Tables render as ASCII art.
 
