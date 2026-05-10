@@ -157,3 +157,19 @@ fn set_macos_dock_icon(png_bytes: &[u8]) {
         }
     }
 }
+
+/// Force-activate the Typort app, stealing focus from whatever was on top
+/// (typically the terminal that ran `typort open`). Tauri's WebviewWindow
+/// `set_focus` brings the window to front of *our* app, but it doesn't make
+/// the app active when the trigger came from an external WebSocket event.
+#[cfg(target_os = "macos")]
+pub(crate) fn activate_app_macos() {
+    use cocoa::appkit::NSApp;
+    use cocoa::base::{id, YES};
+    use objc::{msg_send, sel, sel_impl};
+
+    unsafe {
+        let app: id = NSApp();
+        let _: () = msg_send![app, activateIgnoringOtherApps: YES];
+    }
+}

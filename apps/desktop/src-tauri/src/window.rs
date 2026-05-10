@@ -9,6 +9,10 @@ pub fn ensure_session_window(
     let title = format!("Typort — {}", display_name);
 
     if let Some(existing) = app.get_webview_window(&label) {
+        #[cfg(target_os = "macos")]
+        crate::activate_app_macos();
+        let _ = existing.unminimize();
+        let _ = existing.show();
         let _ = existing.set_focus();
         return Ok(());
     }
@@ -24,7 +28,8 @@ pub fn ensure_session_window(
     // First session window opening flips the app from menu-bar/accessory mode
     // (no Dock icon) to a regular Dock-visible app. Cleanup in
     // commands::close_session_internal flips it back when the last session
-    // closes.
+    // closes. We do this BEFORE activating + focusing so the Dock icon is
+    // already in place by the time the user looks.
     #[cfg(target_os = "macos")]
     {
         let state: tauri::State<crate::AppState> = app.state();
@@ -32,7 +37,15 @@ pub fn ensure_session_window(
         if session_count == 1 {
             let _ = app.set_activation_policy(tauri::ActivationPolicy::Regular);
         }
+        crate::activate_app_macos();
     }
+
+    // Pop the new editor window in front of whatever app currently has focus.
+    // Without this the window opens behind the terminal that ran
+    // `typort open`, because trigger came via WebSocket and macOS doesn't
+    // auto-activate Typort.
+    let _ = window.show();
+    let _ = window.set_focus();
 
     // When the user closes this window via the OS (red close button), we still
     // need to tell the remote agent to exit. Without this, the agent's
