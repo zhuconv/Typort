@@ -51,7 +51,24 @@ pub fn run() {
             // (see commands.rs::close_session_internal).
             #[cfg(target_os = "macos")]
             {
+                // Register the Dock icon BEFORE flipping to Accessory. In dev
+                // mode the binary has no .icns (that's only embedded in the
+                // .app bundle by `tauri build`), so without this NSApplication
+                // falls back to a generic terminal/exec icon when we later
+                // flip to Regular for editor sessions. Tauri v2 doesn't
+                // expose a Rust-side setter for the macOS dock icon, so we
+                // talk to AppKit directly.
+                set_macos_dock_icon(include_bytes!("../icons/icon.png"));
                 let _ = app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+            }
+
+            // Tauri's auto-creation of the "main" window from tauri.conf.json
+            // happens before our setup hook, but in Accessory mode the window
+            // isn't focus-stolen the way Regular apps do it. Show + focus it
+            // explicitly so the user actually sees Welcome on first launch.
+            if let Some(w) = app.get_webview_window("main") {
+                let _ = w.show();
+                let _ = w.set_focus();
             }
 
             let app_handle = app.handle().clone();
@@ -117,5 +134,26 @@ fn show_welcome_window(app: &tauri::AppHandle) {
         let _ = w.unminimize();
         let _ = w.show();
         let _ = w.set_focus();
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn set_macos_dock_icon(png_bytes: &[u8]) {
+    use cocoa::appkit::NSApp;
+    use cocoa::base::{id, nil};
+    use objc::{class, msg_send, sel, sel_impl};
+
+    unsafe {
+        let data: id = msg_send![
+            class!(NSData),
+            dataWithBytes:png_bytes.as_ptr() as *const std::ffi::c_void
+            length:png_bytes.len()
+        ];
+        let image_alloc: id = msg_send![class!(NSImage), alloc];
+        let image: id = msg_send![image_alloc, initWithData: data];
+        if image != nil {
+            let app: id = NSApp();
+            let _: () = msg_send![app, setApplicationIconImage: image];
+        }
     }
 }
