@@ -27,6 +27,15 @@ describe("parseArgs", () => {
     expect(r.open!.readonly).toBe(true);
   });
 
+  it("foreground defaults to false (detached)", () => {
+    expect(parseArgs(["node", "typort", "open", "/x"]).open!.foreground).toBe(false);
+  });
+
+  it("parses --foreground and -f", () => {
+    expect(parseArgs(["node", "typort", "open", "/x", "--foreground"]).open!.foreground).toBe(true);
+    expect(parseArgs(["node", "typort", "open", "/x", "-f"]).open!.foreground).toBe(true);
+  });
+
   it("parses --hub and --token", () => {
     const r = parseArgs([
       "node",

@@ -1,5 +1,7 @@
-import { hostname } from "node:os";
-import { isAbsolute, resolve } from "node:path";
+import { spawn } from "node:child_process";
+import { mkdirSync, openSync } from "node:fs";
+import { homedir, hostname } from "node:os";
+import { isAbsolute, join, resolve } from "node:path";
 import {
   AGENT_CONNECT_PATH,
   DEFAULT_HUB_HTTP,
@@ -18,6 +20,7 @@ interface OpenOptions {
   token?: string | undefined;
   readonly: boolean;
   insecureNoTls: boolean;
+  foreground: boolean;
 }
 
 const HELP_TEXT = `typort - remote markdown editor agent
@@ -29,6 +32,9 @@ USAGE
   typort --version
 
 OPTIONS for "open"
+  -f, --foreground       stay attached to the terminal (default: detach to
+                         background and return immediately; logs to
+                         ~/.typort/typort.log)
   --readonly             open file as readonly (no save back)
   --hub <url>            hub HTTP URL (default ${DEFAULT_HUB_HTTP}, env TYPORT_HUB)
   --token <token>        auth token (default env TYPORT_TOKEN)
@@ -70,6 +76,7 @@ export function parseArgs(argv: readonly string[]): {
   let file: string | undefined;
   let readonly = false;
   let insecureNoTls = false;
+  let foreground = false;
   let hubHttp = process.env.TYPORT_HUB ?? DEFAULT_HUB_HTTP;
   let token = process.env.TYPORT_TOKEN;
 
@@ -79,6 +86,8 @@ export function parseArgs(argv: readonly string[]): {
       readonly = true;
     } else if (a === "--insecure-no-tls") {
       insecureNoTls = true;
+    } else if (a === "--foreground" || a === "-f") {
+      foreground = true;
     } else if (a === "--hub") {
       const v = rest[++i];
       if (!v) throw new Error("--hub requires a value");
@@ -87,7 +96,7 @@ export function parseArgs(argv: readonly string[]): {
       const v = rest[++i];
       if (!v) throw new Error("--token requires a value");
       token = v;
-    } else if (a.startsWith("--")) {
+    } else if (a.startsWith("--") || (a.startsWith("-") && a.length > 1 && !a.match(/^-?\d/))) {
       throw new Error(`unknown flag: ${a}`);
     } else if (!file) {
       file = a;
@@ -102,7 +111,7 @@ export function parseArgs(argv: readonly string[]): {
   const hubWs = httpToWs(hubHttp);
   return {
     cmd: "open",
-    open: { file: abs, hubWs, hubHttp, token, readonly, insecureNoTls },
+    open: { file: abs, hubWs, hubHttp, token, readonly, insecureNoTls, foreground },
   };
 }
 
@@ -194,6 +203,13 @@ export async function main(argv: readonly string[]): Promise<number> {
         );
         return 2;
       }
+      // Default: detach to background so the terminal returns immediately.
+      // The detached child re-enters this same code path with
+      // TYPORT_DAEMON_CHILD=1 set, which makes it skip the fork and run
+      // the agent in-process.
+      if (!o.foreground && process.env.TYPORT_DAEMON_CHILD !== "1") {
+        return spawnDetached(o);
+      }
       return runAgent({
         file: o.file,
         hubWs: o.hubWs,
@@ -203,4 +219,26 @@ export async function main(argv: readonly string[]): Promise<number> {
       });
     }
   }
+}
+
+function spawnDetached(o: OpenOptions): number {
+  const logDir = join(homedir(), ".typort");
+  mkdirSync(logDir, { recursive: true });
+  const logPath = join(logDir, "typort.log");
+  const logFd = openSync(logPath, "a");
+
+  const child = spawn(
+    process.execPath,
+    [process.argv[1]!, ...process.argv.slice(2)],
+    {
+      detached: true,
+      stdio: ["ignore", logFd, logFd],
+      env: { ...process.env, TYPORT_DAEMON_CHILD: "1" },
+    },
+  );
+  child.unref();
+
+  process.stdout.write(`opened: ${o.file}\n`);
+  process.stdout.write(`  logs: ${logPath}\n`);
+  return 0;
 }

@@ -3647,6 +3647,8 @@ var require_websocket_server = __commonJS({
 });
 
 // src/cli.ts
+var import_node_child_process = require("node:child_process");
+var import_node_fs2 = require("node:fs");
 var import_node_os2 = require("node:os");
 var import_node_path3 = require("node:path");
 
@@ -8287,6 +8289,9 @@ USAGE
   typort --version
 
 OPTIONS for "open"
+  -f, --foreground       stay attached to the terminal (default: detach to
+                         background and return immediately; logs to
+                         ~/.typort/typort.log)
   --readonly             open file as readonly (no save back)
   --hub <url>            hub HTTP URL (default ${DEFAULT_HUB_HTTP}, env TYPORT_HUB)
   --token <token>        auth token (default env TYPORT_TOKEN)
@@ -8323,6 +8328,7 @@ function parseArgs(argv) {
   let file;
   let readonly = false;
   let insecureNoTls = false;
+  let foreground = false;
   let hubHttp = process.env.TYPORT_HUB ?? DEFAULT_HUB_HTTP;
   let token = process.env.TYPORT_TOKEN;
   for (let i = 0; i < rest.length; i++) {
@@ -8331,6 +8337,8 @@ function parseArgs(argv) {
       readonly = true;
     } else if (a === "--insecure-no-tls") {
       insecureNoTls = true;
+    } else if (a === "--foreground" || a === "-f") {
+      foreground = true;
     } else if (a === "--hub") {
       const v = rest[++i];
       if (!v) throw new Error("--hub requires a value");
@@ -8339,7 +8347,7 @@ function parseArgs(argv) {
       const v = rest[++i];
       if (!v) throw new Error("--token requires a value");
       token = v;
-    } else if (a.startsWith("--")) {
+    } else if (a.startsWith("--") || a.startsWith("-") && a.length > 1 && !a.match(/^-?\d/)) {
       throw new Error(`unknown flag: ${a}`);
     } else if (!file) {
       file = a;
@@ -8352,7 +8360,7 @@ function parseArgs(argv) {
   const hubWs = httpToWs(hubHttp);
   return {
     cmd: "open",
-    open: { file: abs, hubWs, hubHttp, token, readonly, insecureNoTls }
+    open: { file: abs, hubWs, hubHttp, token, readonly, insecureNoTls, foreground }
   };
 }
 function httpToWs(http) {
@@ -8440,6 +8448,9 @@ async function main(argv) {
         );
         return 2;
       }
+      if (!o.foreground && process.env.TYPORT_DAEMON_CHILD !== "1") {
+        return spawnDetached(o);
+      }
       return runAgent({
         file: o.file,
         hubWs: o.hubWs,
@@ -8449,6 +8460,27 @@ async function main(argv) {
       });
     }
   }
+}
+function spawnDetached(o) {
+  const logDir = (0, import_node_path3.join)((0, import_node_os2.homedir)(), ".typort");
+  (0, import_node_fs2.mkdirSync)(logDir, { recursive: true });
+  const logPath = (0, import_node_path3.join)(logDir, "typort.log");
+  const logFd = (0, import_node_fs2.openSync)(logPath, "a");
+  const child = (0, import_node_child_process.spawn)(
+    process.execPath,
+    [process.argv[1], ...process.argv.slice(2)],
+    {
+      detached: true,
+      stdio: ["ignore", logFd, logFd],
+      env: { ...process.env, TYPORT_DAEMON_CHILD: "1" }
+    }
+  );
+  child.unref();
+  process.stdout.write(`opened: ${o.file}
+`);
+  process.stdout.write(`  logs: ${logPath}
+`);
+  return 0;
 }
 
 // src/bin/typort.ts
