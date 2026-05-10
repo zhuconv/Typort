@@ -1,0 +1,37 @@
+[package]
+name = "typort-desktop"
+version = "0.1.0"
+description = "Typort: a local Markdown editor for remote files."
+authors = ["zhuconv"]
+edition = "2021"
+rust-version = "1.77"
+
+[lib]
+name = "typort_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "net", "time", "io-util"] }
+axum = { version = "0.7", features = ["ws"] }
+tower = "0.5"
+tower-http = { version = "0.5", features = ["cors"] }
+futures-util = "0.3"
+uuid = { version = "1", features = ["v4"] }
+sha2 = "0.10"
+hex = "0.4"
+parking_lot = "0.12"
+thiserror = "1"
+log = "0.4"
+env_logger = "0.11"
+rand = "0.8"
+dirs = "5"
+
+[features]
+default = []
+custom-protocol = ["tauri/custom-protocol"]

@@ -1,0 +1,25 @@
+{
+  "name": "typort",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Typort: a Tauri-based local Markdown editor that opens remote files via SSH reverse tunnel.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "build": "pnpm -r --filter './packages/*' build",
+    "build:all": "pnpm -r build",
+    "test": "pnpm -r --filter './packages/*' test",
+    "test:cli-integration": "pnpm --filter @typort/cli test:integration",
+    "typecheck": "pnpm -r --filter './packages/*' typecheck",
+    "tauri:dev": "pnpm --filter @typort/desktop tauri dev",
+    "tauri:build": "pnpm --filter @typort/desktop tauri build",
+    "cli": "node packages/cli/dist/bin/typort.js"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@10.28.2"
+}
