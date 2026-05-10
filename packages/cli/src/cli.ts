@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { mkdirSync, openSync } from "node:fs";
+import { mkdirSync, openSync, statSync } from "node:fs";
 import { homedir, hostname } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 import {
@@ -203,6 +203,15 @@ export async function main(argv: readonly string[]): Promise<number> {
         );
         return 2;
       }
+      // Validate the file BEFORE forking. Otherwise the parent prints
+      // "opened: ..." while the child silently fails and writes the error
+      // to ~/.typort/typort.log — the user sees a success message for a
+      // file that doesn't exist.
+      const validation = validateFileForOpen(o.file);
+      if (validation) {
+        process.stderr.write(`error: ${validation}\n`);
+        return 1;
+      }
       // Default: detach to background so the terminal returns immediately.
       // The detached child re-enters this same code path with
       // TYPORT_DAEMON_CHILD=1 set, which makes it skip the fork and run
@@ -219,6 +228,31 @@ export async function main(argv: readonly string[]): Promise<number> {
       });
     }
   }
+}
+
+const MAX_FILE_BYTES = 10 * 1024 * 1024;
+
+/**
+ * Cheap pre-flight checks that mirror what file-session/readSnapshot does.
+ * Returns an error message string on failure, or null if the file is
+ * acceptable to open. Run in the parent so the user sees the error on stderr
+ * instead of having to grep ~/.typort/typort.log.
+ */
+function validateFileForOpen(absPath: string): string | null {
+  let stat;
+  try {
+    stat = statSync(absPath);
+  } catch (err: unknown) {
+    const e = err as NodeJS.ErrnoException;
+    if (e.code === "ENOENT") return `file not found: ${absPath}`;
+    if (e.code === "EACCES") return `permission denied: ${absPath}`;
+    return `cannot stat ${absPath}: ${e.message}`;
+  }
+  if (!stat.isFile()) return `not a regular file: ${absPath}`;
+  if (stat.size > MAX_FILE_BYTES) {
+    return `file is ${stat.size} bytes; limit is ${MAX_FILE_BYTES} bytes (${absPath})`;
+  }
+  return null;
 }
 
 function spawnDetached(o: OpenOptions): number {

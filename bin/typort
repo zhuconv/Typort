@@ -8448,6 +8448,12 @@ async function main(argv) {
         );
         return 2;
       }
+      const validation = validateFileForOpen(o.file);
+      if (validation) {
+        process.stderr.write(`error: ${validation}
+`);
+        return 1;
+      }
       if (!o.foreground && process.env.TYPORT_DAEMON_CHILD !== "1") {
         return spawnDetached(o);
       }
@@ -8460,6 +8466,23 @@ async function main(argv) {
       });
     }
   }
+}
+var MAX_FILE_BYTES = 10 * 1024 * 1024;
+function validateFileForOpen(absPath) {
+  let stat;
+  try {
+    stat = (0, import_node_fs2.statSync)(absPath);
+  } catch (err) {
+    const e = err;
+    if (e.code === "ENOENT") return `file not found: ${absPath}`;
+    if (e.code === "EACCES") return `permission denied: ${absPath}`;
+    return `cannot stat ${absPath}: ${e.message}`;
+  }
+  if (!stat.isFile()) return `not a regular file: ${absPath}`;
+  if (stat.size > MAX_FILE_BYTES) {
+    return `file is ${stat.size} bytes; limit is ${MAX_FILE_BYTES} bytes (${absPath})`;
+  }
+  return null;
 }
 function spawnDetached(o) {
   const logDir = (0, import_node_path3.join)((0, import_node_os2.homedir)(), ".typort");
