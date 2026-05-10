@@ -58,13 +58,33 @@ describe("parseArgs", () => {
     );
   });
 
-  it("rejects unknown commands", () => {
-    expect(() => parseArgs(["node", "typort", "fly"])).toThrow(/unknown command/);
+  it("non-subcommand head is treated as a filename for open (typort foo.md shortcut)", () => {
+    const r = parseArgs(["node", "typort", "fly.md"]);
+    expect(r.cmd).toBe("open");
+    expect(r.open!.file.endsWith("/fly.md")).toBe(true);
   });
 
-  it("doctor and tunnel-help", () => {
+  it("non-subcommand absolute path also works as shortcut", () => {
+    const r = parseArgs(["node", "typort", "/abs/x.md"]);
+    expect(r.cmd).toBe("open");
+    expect(r.open!.file).toBe("/abs/x.md");
+  });
+
+  it("shortcut with -f flag", () => {
+    const r = parseArgs(["node", "typort", "-f", "/abs/x.md"]);
+    expect(r.cmd).toBe("open");
+    expect(r.open!.foreground).toBe(true);
+    expect(r.open!.file).toBe("/abs/x.md");
+  });
+
+  it("rejects unknown long flags as the first arg", () => {
+    expect(() => parseArgs(["node", "typort", "--bogos"])).toThrow(/unknown command/);
+  });
+
+  it("doctor / tunnel-help / welcome subcommands dispatch", () => {
     expect(parseArgs(["node", "typort", "doctor"]).cmd).toBe("doctor");
     expect(parseArgs(["node", "typort", "tunnel-help"]).cmd).toBe("tunnel-help");
+    expect(parseArgs(["node", "typort", "welcome"]).cmd).toBe("welcome");
   });
 });
 

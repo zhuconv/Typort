@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { mkdirSync, openSync, statSync } from "node:fs";
 import { homedir, hostname } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
@@ -11,7 +11,16 @@ import {
 } from "@typort/protocol";
 import { runAgent } from "./agent.js";
 
-type Cmd = "open" | "doctor" | "tunnel-help" | "version" | "help";
+type Cmd = "open" | "doctor" | "tunnel-help" | "welcome" | "version" | "help";
+
+const SUBCOMMANDS = new Set([
+  "open",
+  "doctor",
+  "tunnel-help",
+  "welcome",
+  "version",
+  "help",
+]);
 
 interface OpenOptions {
   file: string;
@@ -26,9 +35,11 @@ interface OpenOptions {
 const HELP_TEXT = `typort - remote markdown editor agent
 
 USAGE
+  typort <file> [options]            # shortcut for 'typort open <file>'
   typort open <file> [options]
   typort doctor
   typort tunnel-help
+  typort welcome                     # (local Mac) bring Welcome window forward
   typort --version
 
 OPTIONS for "open"
@@ -46,8 +57,9 @@ ENV
   TYPORT_DEV_INSECURE=1  permit unauthenticated connection (dev only)
 
 EXAMPLES
-  typort open ./README.md
-  TYPORT_TOKEN=abc typort open /path/to/file.md
+  typort ./README.md                 # shortcut, opens with default settings
+  typort open /path/to/file.md
+  TYPORT_TOKEN=abc typort /path/to/file.md
   typort tunnel-help
 `;
 
@@ -59,7 +71,7 @@ export function parseArgs(argv: readonly string[]): {
   if (args.length === 0) {
     return { cmd: "help" };
   }
-  const head = args[0];
+  const head = args[0]!;
   if (head === "--help" || head === "-h" || head === "help") {
     return { cmd: "help" };
   }
@@ -68,11 +80,20 @@ export function parseArgs(argv: readonly string[]): {
   }
   if (head === "doctor") return { cmd: "doctor" };
   if (head === "tunnel-help") return { cmd: "tunnel-help" };
-  if (head !== "open") {
+  if (head === "welcome") return { cmd: "welcome" };
+
+  // If the head is a known subcommand keyword, dispatch to that subcommand;
+  // otherwise treat the whole argv (including head) as `open` arguments so
+  // `typort foo.md` is shorthand for `typort open foo.md`. Unknown long
+  // flags as the first arg are still rejected (otherwise typos like
+  // `--bogos` would silently be treated as a filename).
+  const rest = SUBCOMMANDS.has(head) ? args.slice(1) : args;
+  if (!SUBCOMMANDS.has(head) && head.startsWith("--") && head !== "--readonly"
+      && head !== "--insecure-no-tls" && head !== "--foreground"
+      && head !== "--hub" && head !== "--token") {
     throw new Error(`unknown command: ${head}`);
   }
 
-  const rest = args.slice(1);
   let file: string | undefined;
   let readonly = false;
   let insecureNoTls = false;
@@ -191,6 +212,8 @@ export async function main(argv: readonly string[]): Promise<number> {
     case "tunnel-help":
       process.stdout.write(tunnelHelpText(process.env.TYPORT_TOKEN));
       return 0;
+    case "welcome":
+      return welcomeCommand();
     case "doctor":
       return doctor();
     case "open": {
@@ -228,6 +251,32 @@ export async function main(argv: readonly string[]): Promise<number> {
       });
     }
   }
+}
+
+/**
+ * Bring Typort Desktop's Welcome window to the front. macOS-only — relies on
+ * `open /Applications/Typort.app`, which (with our single-instance plugin)
+ * routes to the running daemon and triggers it to show + focus Welcome.
+ */
+function welcomeCommand(): number {
+  if (process.platform !== "darwin") {
+    process.stderr.write(
+      "error: `typort welcome` only works on macOS where Typort.app is installed.\n",
+    );
+    return 1;
+  }
+  const appPath = "/Applications/Typort.app";
+  try {
+    statSync(appPath);
+  } catch {
+    process.stderr.write(
+      `error: ${appPath} not found.\n` +
+        "  Install: build with \`pnpm tauri:build && pnpm install:app\` from the Typort repo.\n",
+    );
+    return 1;
+  }
+  const r = spawnSync("open", [appPath], { stdio: "inherit" });
+  return r.status ?? 1;
 }
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024;

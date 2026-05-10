@@ -8280,12 +8280,22 @@ function buildConnectUrl(base, token) {
 }
 
 // src/cli.ts
+var SUBCOMMANDS = /* @__PURE__ */ new Set([
+  "open",
+  "doctor",
+  "tunnel-help",
+  "welcome",
+  "version",
+  "help"
+]);
 var HELP_TEXT = `typort - remote markdown editor agent
 
 USAGE
+  typort <file> [options]            # shortcut for 'typort open <file>'
   typort open <file> [options]
   typort doctor
   typort tunnel-help
+  typort welcome                     # (local Mac) bring Welcome window forward
   typort --version
 
 OPTIONS for "open"
@@ -8303,8 +8313,9 @@ ENV
   TYPORT_DEV_INSECURE=1  permit unauthenticated connection (dev only)
 
 EXAMPLES
-  typort open ./README.md
-  TYPORT_TOKEN=abc typort open /path/to/file.md
+  typort ./README.md                 # shortcut, opens with default settings
+  typort open /path/to/file.md
+  TYPORT_TOKEN=abc typort /path/to/file.md
   typort tunnel-help
 `;
 function parseArgs(argv) {
@@ -8321,10 +8332,11 @@ function parseArgs(argv) {
   }
   if (head === "doctor") return { cmd: "doctor" };
   if (head === "tunnel-help") return { cmd: "tunnel-help" };
-  if (head !== "open") {
+  if (head === "welcome") return { cmd: "welcome" };
+  const rest = SUBCOMMANDS.has(head) ? args.slice(1) : args;
+  if (!SUBCOMMANDS.has(head) && head.startsWith("--") && head !== "--readonly" && head !== "--insecure-no-tls" && head !== "--foreground" && head !== "--hub" && head !== "--token") {
     throw new Error(`unknown command: ${head}`);
   }
-  const rest = args.slice(1);
   let file;
   let readonly = false;
   let insecureNoTls = false;
@@ -8437,6 +8449,8 @@ async function main(argv) {
     case "tunnel-help":
       process.stdout.write(tunnelHelpText(process.env.TYPORT_TOKEN));
       return 0;
+    case "welcome":
+      return welcomeCommand();
     case "doctor":
       return doctor();
     case "open": {
@@ -8466,6 +8480,27 @@ async function main(argv) {
       });
     }
   }
+}
+function welcomeCommand() {
+  if (process.platform !== "darwin") {
+    process.stderr.write(
+      "error: `typort welcome` only works on macOS where Typort.app is installed.\n"
+    );
+    return 1;
+  }
+  const appPath = "/Applications/Typort.app";
+  try {
+    (0, import_node_fs2.statSync)(appPath);
+  } catch {
+    process.stderr.write(
+      `error: ${appPath} not found.
+  Install: build with \`pnpm tauri:build && pnpm install:app\` from the Typort repo.
+`
+    );
+    return 1;
+  }
+  const r = (0, import_node_child_process.spawnSync)("open", [appPath], { stdio: "inherit" });
+  return r.status ?? 1;
 }
 var MAX_FILE_BYTES = 10 * 1024 * 1024;
 function validateFileForOpen(absPath) {
