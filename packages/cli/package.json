@@ -13,7 +13,7 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "bundle": "esbuild src/bin/typort.ts --bundle --platform=node --target=node18 --format=cjs --outfile=dist/typort.bundle.cjs --external:bufferutil --external:utf-8-validate --legal-comments=none && chmod +x dist/typort.bundle.cjs",
+    "bundle": "esbuild src/bin/typort.ts --bundle --platform=node --target=node18 --format=cjs --outfile=../../bin/typort --external:bufferutil --external:utf-8-validate --legal-comments=none && chmod +x ../../bin/typort",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:integration": "vitest run --config vitest.integration.config.ts",

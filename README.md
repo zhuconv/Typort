@@ -42,17 +42,14 @@ The desktop app exposes a hub on `127.0.0.1:17887`. The CLI connects to it, send
 
 ## Quick start (over SSH)
 
-The remote server only needs Node ≥18. No `pnpm`, no `npm install`, no toolchain — just one bundled `.cjs` file.
+The remote only needs **Node ≥18**. No `pnpm`, no `npm install`, no toolchain — `bin/typort` is a single-file bundled executable that's checked into the repo.
 
 ```bash
-# === one-time: ship the CLI to the remote ===
-# (locally) build a single-file bundle (~265 KB, includes ws/zod/file-session/protocol)
-pnpm bundle:cli
-
-# scp it to somewhere on PATH on the remote
-scp packages/cli/dist/typort.bundle.cjs user@server:~/.local/bin/typort
-ssh user@server "chmod +x ~/.local/bin/typort"
-# (or any other dir; just make sure it's on your remote $PATH)
+# === one-time: get the CLI on the remote ===
+ssh user@server
+git clone https://github.com/zhuconv/Typort.git ~/typort
+ln -s ~/typort/bin/typort ~/.local/bin/typort   # or any dir on $PATH
+exit
 
 # === per-session ===
 # 1. on local laptop: keep Typort Desktop running
@@ -66,6 +63,8 @@ export TYPORT_TOKEN=<copy-from-Typort-status-window>
 typort doctor                     # sanity-check tunnel + token
 typort open /remote/path/notes.md
 ```
+
+When the CLI source changes, the bundle is regenerated locally with `pnpm bundle:cli`; check in the updated `bin/typort` and `git pull` on the remote.
 
 ## Editor
 
