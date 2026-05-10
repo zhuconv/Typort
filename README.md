@@ -1,88 +1,76 @@
 # Typort
 
-Tauri-based local Markdown editor for remote files. Run `typort open file.md` on a remote SSH server, and the file opens in a native editor on your local laptop, with safe atomic save-back through an SSH reverse tunnel.
+Open a remote Markdown file from an SSH shell and edit it natively on your local machine. Saves go back to the original remote path, atomically and hash-checked.
 
 ```text
-remote shell  ──► typort open file.md
-                       │ (SSH reverse tunnel: -R 17887:127.0.0.1:17887)
+remote shell  ─►  typort open file.md
+                       │  (SSH reverse tunnel: -R 17887:127.0.0.1:17887)
                        ▼
-local laptop  ──► Typort Desktop (Tauri) ──► native editor window (typora-web)
-                                              │
-                                              └─► atomic save back to remote path
+local laptop  ─►  Typort Desktop (Tauri)  ─►  native editor (typora-web)
+                                                      │
+                                                      ▼
+                                             atomic save back to remote
 ```
 
-## Repo layout
+## Layout
 
 ```text
-apps/
-  desktop/          # Tauri v2 desktop app (Rust backend + Vite/React frontend)
-packages/
-  protocol/         # Shared zod schemas + TS types for the JSON wire protocol
-  file-session/     # Hash + atomic write helpers for the remote agent
-  cli/              # `typort` remote CLI / agent
-  editor-adapter/   # Thin wrapper around typora-web (used by the frontend)
+apps/desktop/        Tauri v2 app (Rust hub + Vite/React frontend)
+packages/protocol/   zod schemas for the WS wire protocol
+packages/file-session/  hash + atomic write + polling watcher (used by the agent)
+packages/cli/        `typort` CLI / agent
+bin/typort           pre-built single-file CLI bundle (committed; ~265 KB)
 ```
-
-## Quick start (dev, same machine)
-
-```bash
-# 1. install deps + build packages
-pnpm install
-pnpm build
-
-# 2. run the desktop app (in one terminal)
-pnpm tauri:dev
-
-# 3. open a Markdown file (in another terminal)
-echo "# scratch\n\nhello" > /tmp/scratch.md
-pnpm cli -- open /tmp/scratch.md
-```
-
-The desktop app exposes a hub on `127.0.0.1:17887`. The CLI connects to it, sends the file content, and the desktop app opens an editor window with the file loaded.
 
 ## Quick start (over SSH)
 
-The remote only needs **Node ≥18**. No `pnpm`, no `npm install`, no toolchain — `bin/typort` is a single-file bundled executable that's checked into the repo.
+The remote only needs **Node ≥18**. No `pnpm`, no `npm install` — `bin/typort` is a self-contained bundle.
 
 ```bash
-# === one-time: get the CLI on the remote ===
-ssh user@server
+# === one-time, on the remote ===
 git clone https://github.com/zhuconv/Typort.git ~/typort
-ln -s ~/typort/bin/typort ~/.local/bin/typort   # or any dir on $PATH
-exit
+ln -s ~/typort/bin/typort ~/.local/bin/typort   # any dir on $PATH
+typort --version
 
 # === per-session ===
-# 1. on local laptop: keep Typort Desktop running
-pnpm tauri:dev
+# 1. local: keep Typort Desktop running (token visible in its Welcome window)
+pnpm install && pnpm tauri:dev
 
-# 2. local terminal: open SSH reverse tunnel
+# 2. local: open the SSH reverse tunnel
 ssh -R 17887:127.0.0.1:17887 user@server
 
-# 3. on remote server: open the file
-export TYPORT_TOKEN=<copy-from-Typort-status-window>
-typort doctor                     # sanity-check tunnel + token
-typort open /remote/path/notes.md
+# 3. remote
+export TYPORT_TOKEN=<paste-from-Welcome-window>     # put in ~/.bashrc
+typort doctor                                       # expect "Hub reachable: yes"
+typort open /home/user/notes.md
 ```
 
-When the CLI source changes, the bundle is regenerated locally with `pnpm bundle:cli`; check in the updated `bin/typort` and `git pull` on the remote.
+The token is generated once and persisted at `~/Library/Application Support/dev.typort.desktop/config.json`; it doesn't change across restarts.
 
-## Editor
+## Conflict handling
 
-The frontend uses [`typora-web`](https://github.com/Yuyz0112/typora-web) (the editor core that the plan refers to as `open-typora`).
+When the remote file changes between open and save, the editor refuses silent overwrite and shows three options:
 
-## Status
-
-This is an MVP implementation of [milestones 0–3 of the plan](./plan.md). See `plan.md` for the full design.
+- **Reload remote** — discard local edits, load the new remote version
+- **Keep mine as `.conflict.md`** — atomically write your draft to a sibling `<file>.typort-conflict-<ts>.md` next to the original; reload the remote into the editor
+- **Edit & merge** — open a textarea pre-filled with `<<<<<<<` / `=======` / `>>>>>>>` markers; Save is gated on all markers being removed
 
 ## Scripts
 
 ```bash
-pnpm install              # install all workspace deps
-pnpm build                # build TS packages (protocol, file-session, cli, editor-adapter)
-pnpm test                 # run unit tests (protocol + file-session + cli integration)
-pnpm typecheck            # tsc --noEmit on each package
-pnpm tauri:dev            # run desktop app in dev mode
-pnpm tauri:build          # build production desktop app
-pnpm cli -- open file.md  # run CLI from the workspace
-pnpm bundle:cli           # produce dist/typort.bundle.cjs (single file, scp to remote)
+pnpm install         # install workspace deps
+pnpm build           # tsc all packages
+pnpm test            # 53 unit tests (protocol, file-session, cli, diff)
+pnpm test:cli-integration  # 6 mock-hub round-trip tests
+pnpm tauri:dev       # run desktop app in dev mode
+pnpm bundle:cli      # rebuild bin/typort (after CLI source changes)
 ```
+
+After editing CLI source, regenerate the committed bundle:
+```bash
+pnpm bundle:cli && git add bin/typort && git commit -m "..." && git push
+```
+
+## Status
+
+MVP covering plan milestones 0–4. See [`plan.md`](./plan.md) for the full design and what's intentionally out of scope.

@@ -92,37 +92,63 @@ pub async fn save_session(
     content: String,
     reason: Option<String>,
 ) -> Result<SaveResult, String> {
-    let reason = reason.unwrap_or_else(|| "autosave".into());
+    do_save(
+        &app,
+        &state,
+        &session_id,
+        content,
+        reason.unwrap_or_else(|| "autosave".into()),
+        None,
+    )
+    .await
+}
 
+/// Save a hand-merged version against a caller-supplied base_hash (typically
+/// the remote's hash from the conflict response). Used by the "Edit & merge"
+/// branch — without this, save_session would still try to use the session's
+/// now-stale base_hash and immediately re-conflict.
+#[tauri::command]
+pub async fn save_merged(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    session_id: String,
+    content: String,
+    base_hash: String,
+) -> Result<SaveResult, String> {
+    do_save(&app, &state, &session_id, content, "merge".into(), Some(base_hash)).await
+}
+
+async fn do_save(
+    app: &AppHandle,
+    state: &State<'_, AppState>,
+    session_id: &str,
+    content: String,
+    reason: String,
+    base_hash_override: Option<String>,
+) -> Result<SaveResult, String> {
     let (tx, rx) = oneshot::channel::<SaveOutcome>();
 
-    let (msg, agent_tx, allowed) = {
+    let (msg, agent_tx) = {
         let mut reg = state.registry.lock();
         let s = reg
-            .get_mut(&session_id)
+            .get_mut(session_id)
             .ok_or_else(|| format!("no such session: {session_id}"))?;
         if s.readonly {
-            return Ok(SaveResult {
-                kind: "error".into(),
-                hash: None,
-                message: Some("session is readonly".into()),
-                conflict_content: None,
-                conflict_hash: None,
-            });
+            return Ok(SaveResult::error("session is readonly"));
         }
         let seq = s.next_seq();
         s.pending.insert(seq, PendingReply::Save(tx));
         s.status = SessionStatus::Saving;
+        let base_hash = base_hash_override.unwrap_or_else(|| s.base_hash.clone());
         let msg = HubToAgent::Save(PFileSave {
-            session_id: session_id.clone(),
+            session_id: session_id.to_string(),
             seq,
-            base_hash: s.base_hash.clone(),
+            base_hash,
             content,
             reason,
         });
-        (msg, s.agent_tx.clone(), true)
+        (msg, s.agent_tx.clone())
     };
-    let _ = allowed;
 
     let _ = app.emit(
         "session.status",
@@ -157,100 +183,20 @@ pub async fn save_session(
             conflict_content: Some(current_content),
             conflict_hash: Some(current_hash),
         },
-        SaveOutcome::Error { message, .. } => SaveResult {
-            kind: "error".into(),
-            hash: None,
-            message: Some(message),
-            conflict_content: None,
-            conflict_hash: None,
-        },
+        SaveOutcome::Error { message, .. } => SaveResult::error(&message),
     })
 }
 
-/// Save a hand-merged version of the file. Differs from `save_session` in
-/// that the caller supplies the `base_hash` to use (typically the remote's
-/// hash from the conflict response, NOT the session's stale base_hash). This
-/// is how the "Edit & merge" branch of conflict resolution writes its result.
-/// The agent will atomically write iff disk hash == base_hash; otherwise the
-/// hub returns conflict again.
-#[tauri::command]
-pub async fn save_merged(
-    app: AppHandle,
-    state: State<'_, AppState>,
-    session_id: String,
-    content: String,
-    base_hash: String,
-) -> Result<SaveResult, String> {
-    let (tx, rx) = oneshot::channel::<SaveOutcome>();
-
-    let (msg, agent_tx) = {
-        let mut reg = state.registry.lock();
-        let s = reg
-            .get_mut(&session_id)
-            .ok_or_else(|| format!("no such session: {session_id}"))?;
-        if s.readonly {
-            return Ok(SaveResult {
-                kind: "error".into(),
-                hash: None,
-                message: Some("session is readonly".into()),
-                conflict_content: None,
-                conflict_hash: None,
-            });
-        }
-        let seq = s.next_seq();
-        s.pending.insert(seq, PendingReply::Save(tx));
-        s.status = SessionStatus::Saving;
-        let msg = HubToAgent::Save(PFileSave {
-            session_id: session_id.clone(),
-            seq,
-            base_hash: base_hash.clone(),
-            content,
-            reason: "merge".into(),
-        });
-        (msg, s.agent_tx.clone())
-    };
-
-    let _ = app.emit(
-        "session.status",
-        serde_json::json!({ "sessionId": session_id, "status": "saving" }),
-    );
-
-    if agent_tx.send(msg).await.is_err() {
-        return Err("agent disconnected".into());
-    }
-
-    let outcome = tokio::time::timeout(std::time::Duration::from_secs(15), rx)
-        .await
-        .map_err(|_| "merge save timed out".to_string())?
-        .map_err(|_| "merge save canceled".to_string())?;
-
-    Ok(match outcome {
-        SaveOutcome::Ok { hash, .. } => SaveResult {
-            kind: "ok".into(),
-            hash: Some(hash),
-            message: None,
-            conflict_content: None,
-            conflict_hash: None,
-        },
-        SaveOutcome::Conflict {
-            current_hash,
-            current_content,
-            ..
-        } => SaveResult {
-            kind: "conflict".into(),
-            hash: None,
-            message: None,
-            conflict_content: Some(current_content),
-            conflict_hash: Some(current_hash),
-        },
-        SaveOutcome::Error { message, .. } => SaveResult {
+impl SaveResult {
+    fn error(msg: &str) -> Self {
+        Self {
             kind: "error".into(),
             hash: None,
-            message: Some(message),
+            message: Some(msg.into()),
             conflict_content: None,
             conflict_hash: None,
-        },
-    })
+        }
+    }
 }
 
 #[tauri::command]

@@ -12,10 +12,8 @@ import {
   type FileSaveSibling,
   type FileSaveSiblingError,
   type FileSaveSiblingOk,
-  type HubAccept,
   type HubReject,
   PROTOCOL_VERSION,
-  parseHubToAgent,
   safeParseHubToAgent,
 } from "@typort/protocol";
 import {
@@ -23,7 +21,6 @@ import {
   isConflictError,
   readSnapshot,
   safeSave,
-  sha256,
   watchPolling,
   writeConflictBackup,
   type SessionSnapshot,
@@ -335,6 +332,3 @@ function buildConnectUrl(base: string, token: string | undefined): string {
   return u.toString();
 }
 
-// touch unused imports for clarity that they are public re-exports of types
-export type { HubAccept };
-export { sha256 };
