@@ -174,21 +174,35 @@ async function doctor(): Promise<number> {
   console.log(`Node version:   ${process.version}`);
   console.log(`Hostname:       ${hostname()}`);
 
-  const url = `${hub}${HEALTH_PATH}`;
+  const probe = await hubReachable(hub);
+  if (probe.ok) {
+    console.log(`Hub reachable:  yes (${probe.reason})`);
+    return 0;
+  }
+  console.log(`Hub reachable:  no — ${probe.reason}`);
+  console.log(
+    "  Hint: is Typort Desktop running locally? Is the SSH reverse tunnel up?",
+  );
+  console.log("  Run 'typort tunnel-help' for setup instructions.");
+  return 1;
+}
+
+/**
+ * Probe the hub's /health endpoint. Used both by `typort doctor` (for the
+ * user-facing report) and by `typort open` as a pre-flight before forking
+ * the detached child, so we don't print "opened: ..." for a hub that isn't
+ * actually there.
+ */
+async function hubReachable(
+  hubHttp: string,
+): Promise<{ ok: boolean; reason: string }> {
+  const url = hubHttp.replace(/\/$/, "") + HEALTH_PATH;
   try {
-    const res = await fetch(url, {
-      headers: token ? { authorization: `Bearer ${token}` } : undefined,
-      signal: AbortSignal.timeout(2500),
-    });
-    console.log(`Hub reachable:  yes (HTTP ${res.status})`);
-    return res.ok ? 0 : 1;
+    const res = await fetch(url, { signal: AbortSignal.timeout(2500) });
+    if (res.ok) return { ok: true, reason: `HTTP ${res.status}` };
+    return { ok: false, reason: `HTTP ${res.status}` };
   } catch (err) {
-    console.log(`Hub reachable:  no — ${(err as Error).message}`);
-    console.log(
-      "  Hint: is Typort Desktop running locally? Is the SSH reverse tunnel up?",
-    );
-    console.log("  Run 'typort tunnel-help' for setup instructions.");
-    return 1;
+    return { ok: false, reason: (err as Error).message };
   }
 }
 
@@ -240,6 +254,20 @@ export async function main(argv: readonly string[]): Promise<number> {
       // TYPORT_DAEMON_CHILD=1 set, which makes it skip the fork and run
       // the agent in-process.
       if (!o.foreground && process.env.TYPORT_DAEMON_CHILD !== "1") {
+        // Pre-flight reachability check. Without this the parent reports
+        // "opened: ..." even when the hub is down or the SSH tunnel is
+        // missing — the child fails with ECONNREFUSED/ECONNRESET silently
+        // into the log file. Probe /health (unauth, always 200 when hub is
+        // up) so the user sees the actual problem on stderr.
+        const probe = await hubReachable(o.hubHttp);
+        if (!probe.ok) {
+          process.stderr.write(
+            `error: Typort hub not reachable at ${o.hubHttp} (${probe.reason}).\n` +
+              "  Is Typort Desktop running on your local machine, and is the SSH reverse tunnel up?\n" +
+              "  Run `typort doctor` for more detail, or `typort tunnel-help` for setup instructions.\n",
+          );
+          return 1;
+        }
         return spawnDetached(o);
       }
       return runAgent({

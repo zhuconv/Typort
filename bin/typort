@@ -8410,21 +8410,26 @@ async function doctor() {
   console.log(`Protocol vsn:   ${PROTOCOL_VERSION}`);
   console.log(`Node version:   ${process.version}`);
   console.log(`Hostname:       ${(0, import_node_os2.hostname)()}`);
-  const url = `${hub}${HEALTH_PATH}`;
+  const probe = await hubReachable(hub);
+  if (probe.ok) {
+    console.log(`Hub reachable:  yes (${probe.reason})`);
+    return 0;
+  }
+  console.log(`Hub reachable:  no \u2014 ${probe.reason}`);
+  console.log(
+    "  Hint: is Typort Desktop running locally? Is the SSH reverse tunnel up?"
+  );
+  console.log("  Run 'typort tunnel-help' for setup instructions.");
+  return 1;
+}
+async function hubReachable(hubHttp) {
+  const url = hubHttp.replace(/\/$/, "") + HEALTH_PATH;
   try {
-    const res = await fetch(url, {
-      headers: token ? { authorization: `Bearer ${token}` } : void 0,
-      signal: AbortSignal.timeout(2500)
-    });
-    console.log(`Hub reachable:  yes (HTTP ${res.status})`);
-    return res.ok ? 0 : 1;
+    const res = await fetch(url, { signal: AbortSignal.timeout(2500) });
+    if (res.ok) return { ok: true, reason: `HTTP ${res.status}` };
+    return { ok: false, reason: `HTTP ${res.status}` };
   } catch (err) {
-    console.log(`Hub reachable:  no \u2014 ${err.message}`);
-    console.log(
-      "  Hint: is Typort Desktop running locally? Is the SSH reverse tunnel up?"
-    );
-    console.log("  Run 'typort tunnel-help' for setup instructions.");
-    return 1;
+    return { ok: false, reason: err.message };
   }
 }
 async function main(argv) {
@@ -8469,6 +8474,16 @@ async function main(argv) {
         return 1;
       }
       if (!o.foreground && process.env.TYPORT_DAEMON_CHILD !== "1") {
+        const probe = await hubReachable(o.hubHttp);
+        if (!probe.ok) {
+          process.stderr.write(
+            `error: Typort hub not reachable at ${o.hubHttp} (${probe.reason}).
+  Is Typort Desktop running on your local machine, and is the SSH reverse tunnel up?
+  Run \`typort doctor\` for more detail, or \`typort tunnel-help\` for setup instructions.
+`
+          );
+          return 1;
+        }
         return spawnDetached(o);
       }
       return runAgent({
