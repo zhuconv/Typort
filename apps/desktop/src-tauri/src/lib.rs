@@ -153,23 +153,38 @@ fn show_welcome_window(app: &tauri::AppHandle) {
 
 #[cfg(target_os = "macos")]
 fn set_macos_dock_icon(png_bytes: &[u8]) {
-    use cocoa::appkit::NSApp;
-    use cocoa::base::{id, nil};
-    use objc::{class, msg_send, sel, sel_impl};
+    use objc2::{AnyThread, MainThreadMarker};
+    use objc2_app_kit::{NSApplication, NSImage};
+    use objc2_foundation::NSData;
 
-    unsafe {
-        let data: id = msg_send![
-            class!(NSData),
-            dataWithBytes:png_bytes.as_ptr() as *const std::ffi::c_void
-            length:png_bytes.len()
-        ];
-        let image_alloc: id = msg_send![class!(NSImage), alloc];
-        let image: id = msg_send![image_alloc, initWithData: data];
-        if image != nil {
-            let app: id = NSApp();
-            let _: () = msg_send![app, setApplicationIconImage: image];
-        }
-    }
+    // Tauri's setup hook + the window-event callbacks that invoke this
+    // both run on the main thread. Guard just in case so a misuse logs
+    // instead of UB.
+    let Some(mtm) = MainThreadMarker::new() else {
+        log::error!("set_macos_dock_icon called off the main thread");
+        return;
+    };
+    let data = NSData::with_bytes(png_bytes);
+    let allocated = NSImage::alloc();
+    let Some(image) = NSImage::initWithData(allocated, &data) else {
+        log::error!("set_macos_dock_icon: NSImage failed to decode PNG bytes");
+        return;
+    };
+    let app = NSApplication::sharedApplication(mtm);
+    // SAFETY: assigning the icon is a normal AppKit-thread operation; the
+    // unsafety marker on this method is generic to anything that mutates
+    // NSApplication state.
+    unsafe { app.setApplicationIconImage(Some(&image)) };
+}
+
+/// Re-apply the bundled dock icon. macOS resets the icon to the
+/// Info.plist default whenever the app's activation policy flips back
+/// to Regular — in dev mode (no .app bundle, so no embedded icon) that
+/// shows the generic exec icon. Call this AFTER every Accessory→Regular
+/// transition so the user always sees our brand.
+#[cfg(target_os = "macos")]
+pub(crate) fn reapply_macos_dock_icon() {
+    set_macos_dock_icon(include_bytes!("../icons/icon.png"));
 }
 
 /// Force-activate the Typort app, stealing focus from whatever was on top
@@ -178,12 +193,16 @@ fn set_macos_dock_icon(png_bytes: &[u8]) {
 /// the app active when the trigger came from an external WebSocket event.
 #[cfg(target_os = "macos")]
 pub(crate) fn activate_app_macos() {
-    use cocoa::appkit::NSApp;
-    use cocoa::base::{id, YES};
-    use objc::{msg_send, sel, sel_impl};
+    use objc2::MainThreadMarker;
+    use objc2_app_kit::NSApplication;
 
-    unsafe {
-        let app: id = NSApp();
-        let _: () = msg_send![app, activateIgnoringOtherApps: YES];
-    }
+    let Some(mtm) = MainThreadMarker::new() else {
+        log::error!("activate_app_macos called off the main thread");
+        return;
+    };
+    let app = NSApplication::sharedApplication(mtm);
+    // Foreground-activation; ignoring other apps is desired here (we want to
+    // steal focus from the terminal that fired the WebSocket event).
+    #[allow(deprecated)]
+    app.activateIgnoringOtherApps(true);
 }

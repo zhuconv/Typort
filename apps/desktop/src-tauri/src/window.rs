@@ -30,12 +30,17 @@ pub fn ensure_session_window(
     // commands::close_session_internal flips it back when the last session
     // closes. We do this BEFORE activating + focusing so the Dock icon is
     // already in place by the time the user looks.
+    //
+    // The flip also resets the dock icon to the Info.plist default (which
+    // in dev mode is the generic exec icon — there's no .app bundle yet),
+    // so we re-apply our bundled icon right after.
     #[cfg(target_os = "macos")]
     {
         let state: tauri::State<crate::AppState> = app.state();
         let session_count = state.registry.lock().len();
         if session_count == 1 {
             let _ = app.set_activation_policy(tauri::ActivationPolicy::Regular);
+            crate::reapply_macos_dock_icon();
         }
         crate::activate_app_macos();
     }

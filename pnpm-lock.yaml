@@ -30,8 +30,8 @@ importers:
         specifier: ^18.3.1
         version: 18.3.1(react@18.3.1)
       typora-web:
-        specifier: github:zhuconv/open-typora#2fe4101
-        version: https://codeload.github.com/zhuconv/open-typora/tar.gz/2fe4101b9e9d1cfc032eb43fbcaf2dc663274f7c
+        specifier: github:zhuconv/open-typora#a1bcc11
+        version: https://codeload.github.com/zhuconv/open-typora/tar.gz/a1bcc11552e2bb1781ed978da132d4227f050dfa
     devDependencies:
       '@tauri-apps/cli':
         specifier: ^2.1.0
@@ -1074,9 +1074,9 @@ packages:
     engines: {node: '>=14.17'}
     hasBin: true
 
-  typora-web@https://codeload.github.com/zhuconv/open-typora/tar.gz/2fe4101b9e9d1cfc032eb43fbcaf2dc663274f7c:
-    resolution: {tarball: https://codeload.github.com/zhuconv/open-typora/tar.gz/2fe4101b9e9d1cfc032eb43fbcaf2dc663274f7c}
-    version: 0.4.0
+  typora-web@https://codeload.github.com/zhuconv/open-typora/tar.gz/a1bcc11552e2bb1781ed978da132d4227f050dfa:
+    resolution: {tarball: https://codeload.github.com/zhuconv/open-typora/tar.gz/a1bcc11552e2bb1781ed978da132d4227f050dfa}
+    version: 0.6.1
 
   uc.micro@2.1.0:
     resolution: {integrity: sha512-ARDJmphmdvUk6Glw7y9DQ2bFkKBHwQHLi2lsaH6PPmz/Ka9sFOBsBluozhDltWmnv9u/cF6Rt87znRTPV+yp/A==}
@@ -1991,7 +1991,7 @@ snapshots:
 
   typescript@5.9.3: {}
 
-  typora-web@https://codeload.github.com/zhuconv/open-typora/tar.gz/2fe4101b9e9d1cfc032eb43fbcaf2dc663274f7c:
+  typora-web@https://codeload.github.com/zhuconv/open-typora/tar.gz/a1bcc11552e2bb1781ed978da132d4227f050dfa:
     dependencies:
       dompurify: 3.4.2
       katex: 0.16.45
