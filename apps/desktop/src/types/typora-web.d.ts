@@ -4,6 +4,9 @@ declare module "typora-web" {
     onChange?: (md: string) => void;
     onFocus?: () => void;
     onBlur?: () => void;
+    /** Custom handler for Cmd/Ctrl+click on a link. Default opens via
+     *  `window.open(href)`. Inject a Tauri opener API in webview hosts. */
+    openLink?: (href: string) => void;
   }
 
   export interface TyporaEditor {

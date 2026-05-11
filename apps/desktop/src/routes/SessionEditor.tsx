@@ -70,6 +70,14 @@ export function SessionEditor({ sessionId }: { sessionId: string }) {
           setStatus((cur) => (cur === "conflict" ? cur : "unsaved"));
           debouncedSave(() => requestSave(md, "autosave"));
         },
+        // Cmd/Ctrl+click on a link → open the user's default browser via
+        // the Tauri opener plugin. `window.open` inside WKWebView is a
+        // no-op (no tab system) so without this links are unreachable.
+        openLink: (href: string) => {
+          import("@tauri-apps/plugin-opener")
+            .then((m) => m.openUrl(href))
+            .catch((err) => console.error("openLink failed:", err));
+        },
       });
       editorRef.current = editor;
     })();
@@ -492,6 +500,7 @@ interface TyportEditor {
 interface CreateEditorOptions {
   initialContent: string;
   onChange?: (md: string) => void;
+  openLink?: (href: string) => void;
 }
 
 interface EditorModule {

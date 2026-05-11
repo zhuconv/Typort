@@ -13,10 +13,11 @@
   },
   "dependencies": {
     "@tauri-apps/api": "^2.1.1",
+    "@tauri-apps/plugin-opener": "^2",
     "diff": "^7.0.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "typora-web": "^0.3.1"
+    "typora-web": "link:../../../open-typora"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.1.0",

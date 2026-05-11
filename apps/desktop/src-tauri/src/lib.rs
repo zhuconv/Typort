@@ -33,6 +33,10 @@ pub fn run() {
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
             show_welcome_window(app);
         }))
+        // Lets the frontend hand off `Cmd+click` on a hyperlink to the
+        // user's default browser. Without this the embedded WKWebView
+        // has no tab system and the link click is a no-op.
+        .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             let config = AppConfig::load_or_init(&app.path())?;
             let registry = Arc::new(Mutex::new(SessionRegistry::new()));
