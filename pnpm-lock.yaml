@@ -30,8 +30,8 @@ importers:
         specifier: ^18.3.1
         version: 18.3.1(react@18.3.1)
       typora-web:
-        specifier: github:zhuconv/open-typora#d974c9c
-        version: https://codeload.github.com/zhuconv/open-typora/tar.gz/d974c9c81e4abbadc21cf7a4c9ff78d3cc9938f5
+        specifier: github:zhuconv/open-typora#e88aa1a
+        version: https://codeload.github.com/zhuconv/open-typora/tar.gz/e88aa1a0e4c7ca54c10d430dca7cb99d17fd186e
     devDependencies:
       '@tauri-apps/cli':
         specifier: ^2.1.0
@@ -1074,8 +1074,8 @@ packages:
     engines: {node: '>=14.17'}
     hasBin: true
 
-  typora-web@https://codeload.github.com/zhuconv/open-typora/tar.gz/d974c9c81e4abbadc21cf7a4c9ff78d3cc9938f5:
-    resolution: {tarball: https://codeload.github.com/zhuconv/open-typora/tar.gz/d974c9c81e4abbadc21cf7a4c9ff78d3cc9938f5}
+  typora-web@https://codeload.github.com/zhuconv/open-typora/tar.gz/e88aa1a0e4c7ca54c10d430dca7cb99d17fd186e:
+    resolution: {tarball: https://codeload.github.com/zhuconv/open-typora/tar.gz/e88aa1a0e4c7ca54c10d430dca7cb99d17fd186e}
     version: 0.4.0
 
   uc.micro@2.1.0:
@@ -1991,7 +1991,7 @@ snapshots:
 
   typescript@5.9.3: {}
 
-  typora-web@https://codeload.github.com/zhuconv/open-typora/tar.gz/d974c9c81e4abbadc21cf7a4c9ff78d3cc9938f5:
+  typora-web@https://codeload.github.com/zhuconv/open-typora/tar.gz/e88aa1a0e4c7ca54c10d430dca7cb99d17fd186e:
     dependencies:
       dompurify: 3.4.2
       katex: 0.16.45
