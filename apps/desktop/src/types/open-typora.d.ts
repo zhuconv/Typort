@@ -1,4 +1,4 @@
-declare module "typora-web" {
+declare module "open-typora" {
   export interface CreateEditorOptions {
     initialContent?: string;
     onChange?: (md: string) => void;
@@ -23,6 +23,6 @@ declare module "typora-web" {
   export function createEditor(host: HTMLElement, opts?: CreateEditorOptions): TyporaEditor;
 }
 
-declare module "typora-web/widgets.css";
-declare module "typora-web/theme-typora.css";
-declare module "typora-web/theme-github.css";
+declare module "open-typora/widgets.css";
+declare module "open-typora/theme-typora.css";
+declare module "open-typora/theme-github.css";

@@ -73,7 +73,7 @@ The editor pops up. You type. The terminal prompt is already back. When you clos
 
 ## What you get
 
-- **WYSIWYG markdown** powered by [typora-web](https://github.com/Yuyz0112/typora-web) — headings, emphasis, code, links, lists, tables, task lists, footnotes, all rendered as you type
+- **WYSIWYG markdown** powered by [open-typora](https://github.com/zhuconv/open-typora) — headings, emphasis, code, links, lists, tables, task lists, footnotes, all rendered as you type
 - **Safe-by-default writes** — atomic `tmp + rename + fsync`, mode/owner preserved, base-hash check before every save so a concurrent remote edit can never be silently clobbered
 - **Three-way conflict resolution** — when remote diverges, you see a side-by-side diff and pick: *Reload remote*, *Keep mine as `.conflict.md`*, or *Edit & merge* with git-style conflict markers
 - **Daemon-style lifecycle on macOS** — the app sits in the menu bar; the Dock icon only appears while you're actually editing

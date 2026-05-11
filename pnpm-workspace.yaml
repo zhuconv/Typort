@@ -3,6 +3,6 @@ packages:
   - "packages/*"
 
 # Git-hosted deps need explicit opt-in to run `prepare` (which builds
-# dist/lib on install). Required for typora-web@github:zhuconv/open-typora.
+# dist/lib on install). Required for open-typora@github:zhuconv/open-typora.
 onlyBuiltDependencies:
-  - typora-web
+  - open-typora

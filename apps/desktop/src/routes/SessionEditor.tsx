@@ -515,12 +515,12 @@ async function loadEditorModule(): Promise<EditorModule> {
   editorModulePromise = (async () => {
     try {
       // Style imports
-      await import("typora-web/widgets.css");
-      await import("typora-web/theme-typora.css");
-      const mod = await import("typora-web");
+      await import("open-typora/widgets.css");
+      await import("open-typora/theme-typora.css");
+      const mod = await import("open-typora");
       return mod as unknown as EditorModule;
     } catch {
-      // Fallback: a bare textarea if typora-web fails to load (offline, etc.).
+      // Fallback: a bare textarea if open-typora fails to load (offline, etc.).
       return makeFallbackEditorModule();
     }
   })();
