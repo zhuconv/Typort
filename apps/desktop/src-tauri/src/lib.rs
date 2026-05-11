@@ -26,7 +26,8 @@ pub fn run() {
     }
     let _ = env_logger::try_init();
 
-    tauri::Builder::default()
+    #[allow(unused_mut)]
+    let mut builder = tauri::Builder::default()
         // Subsequent invocations of `pnpm tauri:dev` (or any second launch of the
         // binary) hit this callback inside the already-running instance. We
         // bring the welcome window forward instead of starting a second daemon.
@@ -36,7 +37,16 @@ pub fn run() {
         // Lets the frontend hand off `Cmd+click` on a hyperlink to the
         // user's default browser. Without this the embedded WKWebView
         // has no tab system and the link click is a no-op.
-        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_opener::init());
+
+    // Debug-only MCP bridge so an external agent can drive the webview
+    // for diagnosis. Stripped from release builds entirely.
+    #[cfg(debug_assertions)]
+    {
+        builder = builder.plugin(tauri_plugin_mcp_bridge::init());
+    }
+
+    builder
         .setup(|app| {
             let config = AppConfig::load_or_init(&app.path())?;
             let registry = Arc::new(Mutex::new(SessionRegistry::new()));

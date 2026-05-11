@@ -26,6 +26,11 @@ tauri-plugin-single-instance = "2"
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 
+# Debug-only: lets Claude Code connect via the Tauri MCP bridge to drive
+# the webview (screenshots, JS exec, DOM inspect, synthetic clicks).
+[target.'cfg(debug_assertions)'.dependencies]
+tauri-plugin-mcp-bridge = "0.11"
+
 [target.'cfg(target_os = "macos")'.dependencies]
 # Used only to set NSApplication.applicationIconImage at startup so dev-mode
 # binaries (no .app bundle, so no Info.plist icon) show the right Dock icon

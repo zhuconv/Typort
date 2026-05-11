@@ -510,6 +510,7 @@ interface EditorModule {
 let editorModulePromise: Promise<EditorModule> | null = null;
 
 async function loadEditorModule(): Promise<EditorModule> {
+  // bust-vite-deps-cache: force re-transform
   if (editorModulePromise) return editorModulePromise;
   editorModulePromise = (async () => {
     try {

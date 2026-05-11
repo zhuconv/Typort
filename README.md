@@ -1,11 +1,9 @@
-<h1 align="center">
-  <img src="apps/desktop/src-tauri/icons/icon-hero.png" width="120" alt="" /><br />
-  Typort
-</h1>
+\<h1 align="center"\>
+<img src="apps/desktop/src-tauri/icons/icon-hero.png" width="120" alt="" />\<br /\>
+Typort
+\</h1\>
 
-
-<p align="center"><strong>Edit remote markdown files like they're local.</strong></p>
-
+\<p align="center"\>\<strong\>Edit remote markdown files like they're local.\</strong\>\</p\>
 
 You SSH into a server. You want to update a README, capture meeting notes, draft a paper section. You open `vim`… and immediately remember how unfun markdown is without a real editor. Headings stay flat. Lists don't auto-format. Bold and italic stay as `**` and `*`. Tables render as ASCII art.
 
@@ -34,14 +32,14 @@ If your current stack is `vim`-and-tears, VSCode Remote-SSH waiting 12 seconds t
 
 ## How it compares
 
-|                                | **Typort** | vim/nano | VSCode Remote | sshfs |
-| ------------------------------ | :--------: | :------: | :-----------: | :---: |
-| WYSIWYG markdown               |     ✅     |    ❌    |    preview pane    | depends |
-| Per-file setup                 |  one command  |  ok  | open folder + handshake | mount tree |
-| Handles concurrent remote edits | diff view + 3-way merge | overwrites | depends | overwrites |
-| Atomic save                    |     ✅     |    ✅    |       ✅      |  fs-dep |
-| Remote install footprint       |  265 KB, no toolchain  | already there | server-side VSCode (~500 MB) | sshfs binary |
-| Terminal stays free after open |     ✅     |    ❌    |      n/a      |  n/a  |
+|                                 | **Typort**              | vim/nano      | VSCode Remote                | sshfs        |
+| ------------------------------- | :---------------------: | :-----------: | :--------------------------: | :----------: |
+| WYSIWYG markdown                | ✅                       | ❌             | preview pane                 | depends      |
+| Per-file setup                  | one command             | ok            | open folder + handshake      | mount tree   |
+| Handles concurrent remote edits | diff view + 3-way merge | overwrites    | depends                      | overwrites   |
+| Atomic save                     | ✅                       | ✅             | ✅                            | fs-dep       |
+| Remote install footprint        | 265 KB, no toolchain    | already there | server-side VSCode (~500 MB) | sshfs binary |
+| Terminal stays free after open  | ✅                       | ❌             | n/a                          | n/a          |
 
 ## Quick start
 
