@@ -4,11 +4,19 @@
  *
  * Heavy module — dynamically imported by SessionEditor only when a code file
  * is opened, so markdown-only windows never pay the Monaco/Shiki cost.
+ *
+ * Fast-open path:
+ *  - Shiki's JavaScript regex engine — no ~600 KB Oniguruma WASM to fetch and
+ *    instantiate;
+ *  - only the opened file's grammar is loaded, not all ~35;
+ *  - the editor is shown as soon as the themes are ready; the grammar loads
+ *    in the background and highlighting lights up a moment later.
  */
 
 import * as monaco from "monaco-editor";
 import EditorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
-import { createHighlighter } from "shiki";
+import { createHighlighter, type BundledLanguage, type Highlighter } from "shiki";
+import { createJavaScriptRegexEngine } from "shiki/engine/javascript";
 import { shikiToMonaco } from "@shikijs/monaco";
 import { CODE_THEMES } from "./codeThemes.js";
 
@@ -17,19 +25,6 @@ import { CODE_THEMES } from "./codeThemes.js";
 // workers. Typort is a fast editor, not an IDE: no IntelliSense workers.
 (self as unknown as { MonacoEnvironment: monaco.Environment }).MonacoEnvironment =
   { getWorker: () => new EditorWorker() };
-
-/**
- * Languages pre-loaded into the Shiki highlighter. Must stay a superset of
- * every id detectLanguage() can return (except "plaintext", which Monaco
- * provides natively).
- */
-const SHIKI_LANGS = [
-  "typescript", "tsx", "javascript", "jsx", "json", "jsonc", "json5",
-  "html", "xml", "css", "scss", "less", "python", "rust", "go", "java",
-  "kotlin", "c", "cpp", "csharp", "ruby", "php", "swift", "lua",
-  "shellscript", "yaml", "toml", "ini", "sql", "diff", "vue", "svelte",
-  "dockerfile", "make",
-];
 
 export interface CodeEditorHandle {
   /** Named to match the markdown editor adapter; returns plain text. */
@@ -54,26 +49,44 @@ export interface CreateCodeEditorOptions {
   onChange?: (content: string) => void;
 }
 
-let shikiReady: Promise<void> | null = null;
+// JavaScript regex engine — avoids fetching and instantiating the Oniguruma
+// WASM. `forgiving` skips the rare grammar rule it cannot translate instead
+// of throwing.
+const shikiEngine = createJavaScriptRegexEngine({ forgiving: true });
+
+let highlighterPromise: Promise<Highlighter> | null = null;
+const wiredLangs = new Set<string>();
 
 /**
- * Build the Shiki highlighter once, register its languages with Monaco, and
- * wire Shiki's grammars + themes into Monaco. Memoised across editor windows.
+ * Shared Shiki highlighter — created with the themes only (fast: a few small
+ * JSON files, no grammars, no WASM). Languages are added on demand by
+ * ensureLanguage(). Memoised across editor windows.
  */
-function ensureShiki(): Promise<void> {
-  if (!shikiReady) {
-    shikiReady = (async () => {
-      const highlighter = await createHighlighter({
+function getHighlighter(): Promise<Highlighter> {
+  if (!highlighterPromise) {
+    highlighterPromise = (async () => {
+      const hl = await createHighlighter({
         themes: CODE_THEMES.map((t) => t.id),
-        langs: SHIKI_LANGS,
+        langs: [],
+        engine: shikiEngine,
       });
-      for (const lang of highlighter.getLoadedLanguages()) {
-        monaco.languages.register({ id: lang });
-      }
-      shikiToMonaco(highlighter, monaco);
+      // Registers the themes with Monaco (no languages loaded yet).
+      shikiToMonaco(hl, monaco);
+      return hl;
     })();
   }
-  return shikiReady;
+  return highlighterPromise;
+}
+
+/** Load one language's grammar and wire its tokenizer into Monaco. */
+async function ensureLanguage(lang: string): Promise<void> {
+  if (lang === "plaintext" || wiredLangs.has(lang)) return;
+  wiredLangs.add(lang);
+  const hl = await getHighlighter();
+  if (!hl.getLoadedLanguages().includes(lang)) {
+    await hl.loadLanguage(lang as BundledLanguage);
+  }
+  shikiToMonaco(hl, monaco);
 }
 
 /** Comfortable line height for a given font size — keeps spacing airy as the
@@ -86,7 +99,12 @@ export async function createCodeEditor(
   host: HTMLElement,
   opts: CreateCodeEditorOptions,
 ): Promise<CodeEditorHandle> {
-  await ensureShiki();
+  // Wait only for the themes (fast). The editor is shown right away; the
+  // grammar for `opts.language` is loaded in the background below.
+  await getHighlighter();
+  if (opts.language !== "plaintext") {
+    monaco.languages.register({ id: opts.language });
+  }
 
   const editor = monaco.editor.create(host, {
     value: opts.initialContent,
@@ -107,6 +125,12 @@ export async function createCodeEditor(
     tabSize: 2,
     padding: { top: 10, bottom: 10 },
   });
+
+  // Load this file's grammar in the background — the editor is already
+  // visible with the text; syntax highlighting lights up a moment later.
+  void ensureLanguage(opts.language).catch((err) =>
+    console.error("shiki: failed to load language", opts.language, err),
+  );
 
   // Bracket changes between a programmatic reload and a real edit, so a
   // reload doesn't fire onChange and trigger a redundant autosave.
