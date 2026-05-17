@@ -3,10 +3,8 @@ use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 pub fn ensure_session_window(
     app: &AppHandle,
     session_id: &str,
-    display_name: &str,
 ) -> Result<(), tauri::Error> {
     let label = session_window_label(session_id);
-    let title = format!("Typort — {}", display_name);
 
     if let Some(existing) = app.get_webview_window(&label) {
         #[cfg(target_os = "macos")]
@@ -18,8 +16,10 @@ pub fn ensure_session_window(
     }
 
     let url_path = format!("index.html#/session/{}", urlencoding(session_id));
+    // The native title bar shows only the app name; the session header below
+    // it already shows the server:path, so repeating it here is redundant.
     let window = WebviewWindowBuilder::new(app, &label, WebviewUrl::App(url_path.into()))
-        .title(title)
+        .title("Typort")
         .inner_size(1000.0, 720.0)
         .min_inner_size(540.0, 360.0)
         .resizable(true)

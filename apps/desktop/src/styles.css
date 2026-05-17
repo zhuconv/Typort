@@ -78,38 +78,117 @@ pre.tunnel {
   display: flex;
   flex-direction: column;
   height: 100vh;
+
+  /* Window-chrome tokens — light palette (markdown sessions and light code
+     themes). Overridden by .session.chrome-dark so the toolbar stays coherent
+     with a dark editor below it. */
+  --chrome-bg: #f5f6f8;
+  --chrome-fg: #1f2328;
+  --chrome-dim: #59636e;
+  --chrome-border: #e1e4e8;
+  --chrome-btn-bg: #ffffff;
+  --chrome-btn-hover: #eceef1;
+  --chrome-btn-border: #d3d8dd;
+  --chrome-accent: #0969da;
+  --chrome-accent-hover: #0860c8;
+  --chrome-accent-fg: #ffffff;
 }
+.session.chrome-dark {
+  --chrome-bg: #1d1d20;
+  --chrome-fg: #e8e8ec;
+  --chrome-dim: #9b9ba5;
+  --chrome-border: #35353c;
+  --chrome-btn-bg: #2b2b31;
+  --chrome-btn-hover: #36363d;
+  --chrome-btn-border: #3d3d46;
+  --chrome-accent: #3b82f6;
+  --chrome-accent-hover: #4f8ff7;
+  --chrome-accent-fg: #ffffff;
+}
+
 .session-header {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--border);
-  background: #fafbfc;
+  gap: 10px;
+  padding: 7px 10px 7px 14px;
+  background: var(--chrome-bg);
+  border-bottom: 1px solid var(--chrome-border);
   flex-shrink: 0;
 }
 .session-header .path {
   flex: 1;
+  min-width: 0;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 12px;
-  color: var(--muted);
+  color: var(--chrome-dim);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .session-header .status {
-  font-size: 12px;
-  padding: 2px 8px;
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 9px;
   border-radius: 999px;
-  background: #eef2f5;
-  color: var(--muted);
+  white-space: nowrap;
+  background: #e7e9ec;
+  color: #59636e;
 }
-.session-header .status.saving { background: #fff8c5; color: #6f4f00; }
-.session-header .status.saved  { background: #dcffe4; color: var(--ok); }
-.session-header .status.unsaved { background: #fff8c5; color: #6f4f00; }
-.session-header .status.conflict { background: #ffd7d3; color: var(--error); }
-.session-header .status.disconnected { background: #ffd7d3; color: var(--error); }
-.session-header .actions { display: flex; gap: 6px; }
+.session-header .status.saving,
+.session-header .status.unsaved      { background: #fdf0cd; color: #7a5800; }
+.session-header .status.saved        { background: #d6f5de; color: #1a7f37; }
+.session-header .status.conflict,
+.session-header .status.disconnected { background: #ffe2df; color: #cf222e; }
+.session.chrome-dark .session-header .status {
+  background: #2c2c33;
+  color: #9b9ba5;
+}
+.session.chrome-dark .session-header .status.saving,
+.session.chrome-dark .session-header .status.unsaved {
+  background: rgba(217, 163, 38, 0.16);
+  color: #e3b341;
+}
+.session.chrome-dark .session-header .status.saved {
+  background: rgba(63, 185, 80, 0.16);
+  color: #5fd37a;
+}
+.session.chrome-dark .session-header .status.conflict,
+.session.chrome-dark .session-header .status.disconnected {
+  background: rgba(248, 81, 73, 0.16);
+  color: #f08c84;
+}
+
+.session-header .actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.session-header button {
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  padding: 6px 11px;
+  border-radius: 6px;
+  border: 1px solid var(--chrome-btn-border);
+  background: var(--chrome-btn-bg);
+  color: var(--chrome-fg);
+  cursor: pointer;
+  transition: background-color 0.12s ease, border-color 0.12s ease;
+}
+.session-header button:hover { background: var(--chrome-btn-hover); }
+.session-header button:disabled { opacity: 0.45; cursor: not-allowed; }
+.session-header button.primary {
+  background: var(--chrome-accent);
+  border-color: var(--chrome-accent);
+  color: var(--chrome-accent-fg);
+  font-weight: 600;
+}
+.session-header button.primary:hover {
+  background: var(--chrome-accent-hover);
+  border-color: var(--chrome-accent-hover);
+}
 
 .session-body {
   flex: 1;
@@ -284,4 +363,139 @@ pre.tunnel {
   color: var(--error);
   border-radius: 6px;
   font-size: 12px;
+}
+
+/* Code-editor theme picker (Monaco/code windows only) */
+.theme-select-wrap {
+  position: relative;
+  display: inline-flex;
+  flex-shrink: 0;
+}
+.theme-select-wrap::after {
+  content: "▾";
+  position: absolute;
+  right: 9px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 9px;
+  line-height: 1;
+  color: var(--chrome-dim);
+  pointer-events: none;
+}
+.theme-select {
+  appearance: none;
+  -webkit-appearance: none;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  padding: 6px 25px 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--chrome-btn-border);
+  background: var(--chrome-btn-bg);
+  color: var(--chrome-fg);
+  cursor: pointer;
+  transition: background-color 0.12s ease, border-color 0.12s ease;
+}
+.theme-select:hover { background: var(--chrome-btn-hover); }
+.theme-select option { background: var(--chrome-bg); color: var(--chrome-fg); }
+
+/* Font-size stepper (Monaco/code windows only) */
+.font-stepper {
+  display: inline-flex;
+  align-items: stretch;
+  flex-shrink: 0;
+  border: 1px solid var(--chrome-btn-border);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--chrome-btn-bg);
+}
+.session-header .font-stepper button {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  padding: 6px 9px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.session-header .font-stepper button:hover:not(:disabled) {
+  background: var(--chrome-btn-hover);
+}
+.font-stepper-input {
+  width: 38px;
+  box-sizing: border-box;
+  padding: 0 2px;
+  text-align: center;
+  font: inherit;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--chrome-fg);
+  background: transparent;
+  border: none;
+  border-left: 1px solid var(--chrome-btn-border);
+  border-right: 1px solid var(--chrome-btn-border);
+  outline: none;
+}
+.font-stepper-input:focus { background: var(--chrome-btn-hover); }
+
+/* HTML view-mode toggle (Preview / Source) */
+.mode-toggle {
+  display: inline-flex;
+  flex-shrink: 0;
+  border: 1px solid var(--chrome-btn-border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.session-header .mode-toggle button {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  padding: 6px 11px;
+  font-size: 12px;
+}
+.session-header .mode-toggle button + button {
+  border-left: 1px solid var(--chrome-btn-border);
+}
+.session-header .mode-toggle button.active {
+  background: var(--chrome-accent);
+  color: var(--chrome-accent-fg);
+  font-weight: 600;
+}
+.session-header .mode-toggle button:not(.active):hover {
+  background: var(--chrome-btn-hover);
+}
+
+/* Rendered HTML preview pane */
+.editor-host.hidden { display: none; }
+.html-preview {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  border: none;
+  background: #ffffff;
+}
+
+/* Status banners */
+.session-banner { margin-bottom: 12px; }
+.session-banner.error { color: var(--error); }
+.session-banner.ok { color: var(--ok); }
+.session.chrome-dark .session-banner.error { color: #f08c84; }
+.session.chrome-dark .session-banner.ok { color: #5fd37a; }
+
+/* Monaco fills the body edge-to-edge; the markdown body keeps its padding. */
+.session-body.code {
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.session-body.code .session-banner {
+  margin: 0;
+  padding: 7px 14px;
+  font-size: 12px;
+  border-bottom: 1px solid var(--chrome-border);
+  background: var(--chrome-bg);
+}
+.session-body.code .editor-host {
+  flex: 1;
+  min-height: 0;
 }

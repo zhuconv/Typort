@@ -12,12 +12,15 @@
     "tauri": "tauri"
   },
   "dependencies": {
+    "@shikijs/monaco": "^4.0.2",
     "@tauri-apps/api": "^2.1.1",
     "@tauri-apps/plugin-opener": "^2",
     "diff": "^7.0.0",
+    "monaco-editor": "^0.55.1",
+    "open-typora": "github:zhuconv/open-typora#3d0177b",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "open-typora": "github:zhuconv/open-typora#3d0177b"
+    "shiki": "^4.0.2"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.1.0",

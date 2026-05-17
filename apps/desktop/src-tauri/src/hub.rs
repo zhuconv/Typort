@@ -170,7 +170,7 @@ async fn handle_socket(socket: WebSocket, state: HubAppState) {
     }
 
     // Create the editor window for this session.
-    if let Err(e) = window::ensure_session_window(&state.app_handle, &session_id, &display_name) {
+    if let Err(e) = window::ensure_session_window(&state.app_handle, &session_id) {
         log::warn!("could not create session window: {e}");
     }
 

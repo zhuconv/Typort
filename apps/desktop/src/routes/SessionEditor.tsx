@@ -15,10 +15,38 @@ import {
   summarizeDiff,
   type DiffLine,
 } from "../lib/diff.js";
+import { detectLanguage, isHtmlPath, isMarkdownPath } from "../lib/fileLang.js";
+import { CODE_THEMES, DEFAULT_CODE_THEME } from "../lib/codeThemes.js";
 
 interface ConflictState {
   remoteContent: string;
   remoteHash: string;
+}
+
+function readStoredCodeTheme(): string {
+  try {
+    return localStorage.getItem("typort.codeTheme") ?? DEFAULT_CODE_THEME;
+  } catch {
+    return DEFAULT_CODE_THEME;
+  }
+}
+
+const FONT_MIN = 10;
+const FONT_MAX = 24;
+const FONT_DEFAULT = 14;
+const FONT_STEP = 1;
+
+function clampFontSize(px: number): number {
+  return Math.min(FONT_MAX, Math.max(FONT_MIN, Math.round(px)));
+}
+
+function readStoredFontSize(): number {
+  try {
+    const v = parseInt(localStorage.getItem("typort.codeFontSize") ?? "", 10);
+    return Number.isFinite(v) ? clampFontSize(v) : FONT_DEFAULT;
+  } catch {
+    return FONT_DEFAULT;
+  }
 }
 
 export function SessionEditor({ sessionId }: { sessionId: string }) {
@@ -34,6 +62,23 @@ export function SessionEditor({ sessionId }: { sessionId: string }) {
   const [mergeSubmitting, setMergeSubmitting] = useState(false);
   const lastSavedHashRef = useRef<string | null>(null);
   const draftRef = useRef<string>("");
+  const [codeTheme, setCodeTheme] = useState<string>(readStoredCodeTheme);
+  const codeThemeRef = useRef(codeTheme);
+  const [codeFontSize, setCodeFontSize] = useState<number>(readStoredFontSize);
+  const codeFontSizeRef = useRef(codeFontSize);
+  const isMarkdown = useMemo(() => (snap ? isMarkdownPath(snap.path) : false), [snap]);
+  const isHtml = useMemo(() => (snap ? isHtmlPath(snap.path) : false), [snap]);
+  const [htmlMode, setHtmlMode] = useState<"preview" | "source">("preview");
+  // Monaco is the visible editor for code files, and for HTML in source mode.
+  const monacoVisible = useMemo(
+    () => !!snap && !isMarkdown && (!isHtml || htmlMode === "source"),
+    [snap, isMarkdown, isHtml, htmlMode],
+  );
+  // A dark editor theme needs dark window chrome too (header + native title bar).
+  const isDarkChrome = useMemo(
+    () => monacoVisible && CODE_THEMES.find((t) => t.id === codeTheme)?.dark === true,
+    [monacoVisible, codeTheme],
+  );
 
   // 1. Fetch session snapshot from Rust backend.
   useEffect(() => {
@@ -52,33 +97,69 @@ export function SessionEditor({ sessionId }: { sessionId: string }) {
     };
   }, [sessionId]);
 
-  // 2. Mount editor once snapshot is loaded.
+  // 2. Mount the editor once the snapshot is loaded. Markdown files open in
+  //    the open-typora WYSIWYG editor; every other file opens in Monaco with
+  //    Shiki syntax highlighting.
   useEffect(() => {
     if (!snap || !hostRef.current) return;
+    const host = hostRef.current;
     let active = true;
     let editor: TyportEditor | null = null;
 
     const debouncedSave = makeDebouncer(800);
+    const handleChange = (content: string) => {
+      draftRef.current = content;
+      setStatus((cur) => (cur === "conflict" ? cur : "unsaved"));
+      debouncedSave(() => requestSave(content, "autosave"));
+    };
 
     (async () => {
-      const mod = await loadEditorModule();
-      if (!active) return;
-      editor = mod.createEditor(hostRef.current!, {
-        initialContent: snap.initialContent,
-        onChange: (md: string) => {
-          draftRef.current = md;
-          setStatus((cur) => (cur === "conflict" ? cur : "unsaved"));
-          debouncedSave(() => requestSave(md, "autosave"));
-        },
-        // Cmd/Ctrl+click on a link → open the user's default browser via
-        // the Tauri opener plugin. `window.open` inside WKWebView is a
-        // no-op (no tab system) so without this links are unreachable.
-        openLink: (href: string) => {
-          import("@tauri-apps/plugin-opener")
-            .then((m) => m.openUrl(href))
-            .catch((err) => console.error("openLink failed:", err));
-        },
-      });
+      if (isMarkdownPath(snap.path)) {
+        const mod = await loadEditorModule();
+        if (!active) return;
+        editor = mod.createEditor(host, {
+          initialContent: snap.initialContent,
+          onChange: handleChange,
+          // Cmd/Ctrl+click on a link → open the user's default browser via
+          // the Tauri opener plugin. `window.open` inside WKWebView is a
+          // no-op (no tab system) so without this links are unreachable.
+          openLink: (href: string) => {
+            import("@tauri-apps/plugin-opener")
+              .then((m) => m.openUrl(href))
+              .catch((err) => console.error("openLink failed:", err));
+          },
+        });
+      } else {
+        try {
+          const { createCodeEditor } = await import("../lib/monacoEditor.js");
+          if (!active) return;
+          editor = await createCodeEditor(host, {
+            initialContent: snap.initialContent,
+            language: detectLanguage(snap.path),
+            theme: codeThemeRef.current,
+            fontSize: codeFontSizeRef.current,
+            readonly: snap.readonly,
+            onChange: handleChange,
+          });
+        } catch (err) {
+          // Monaco/Shiki failed to load — fall back to a bare textarea so
+          // the file stays editable.
+          console.error("code editor failed to load:", err);
+          if (!active) return;
+          editor = makeFallbackEditorModule().createEditor(host, {
+            initialContent: snap.initialContent,
+            onChange: handleChange,
+          });
+        }
+      }
+      if (!active) {
+        try {
+          editor?.destroy();
+        } catch {
+          // ignore
+        }
+        return;
+      }
       editorRef.current = editor;
     })();
 
@@ -113,6 +194,57 @@ export function SessionEditor({ sessionId }: { sessionId: string }) {
       if (unlistenStatus) unlistenStatus();
     };
   }, [sessionId]);
+
+  // 4. Apply code-editor theme changes to the live Monaco instance and
+  //    persist the choice for the next window.
+  useEffect(() => {
+    codeThemeRef.current = codeTheme;
+    try {
+      localStorage.setItem("typort.codeTheme", codeTheme);
+    } catch {
+      // localStorage unavailable — non-fatal
+    }
+    editorRef.current?.setTheme?.(codeTheme);
+  }, [codeTheme]);
+
+  // 5. Keep the native window chrome (title bar, native menus/scrollbars) in
+  //    sync: dark for dark code themes, light otherwise. Best-effort — falls
+  //    back to CSS-only chrome theming outside Tauri or without the permission.
+  useEffect(() => {
+    let cancelled = false;
+    import("@tauri-apps/api/window")
+      .then(({ getCurrentWindow }) => {
+        if (!cancelled) {
+          return getCurrentWindow().setTheme(isDarkChrome ? "dark" : "light");
+        }
+      })
+      .catch(() => {
+        /* not in Tauri, or set-theme not permitted — CSS chrome still applies */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isDarkChrome]);
+
+  // 6. Apply code-editor font-size changes to the live Monaco instance and
+  //    persist the choice for the next window.
+  useEffect(() => {
+    codeFontSizeRef.current = codeFontSize;
+    try {
+      localStorage.setItem("typort.codeFontSize", String(codeFontSize));
+    } catch {
+      // localStorage unavailable — non-fatal
+    }
+    editorRef.current?.setFontSize?.(codeFontSize);
+  }, [codeFontSize]);
+
+  // 7. HTML switching to source view un-hides Monaco's container — force a
+  //    re-layout so it sizes to the now-visible pane.
+  useEffect(() => {
+    if (isHtml && htmlMode === "source") {
+      editorRef.current?.layout?.();
+    }
+  }, [isHtml, htmlMode]);
 
   async function requestSave(content: string, reason: "autosave" | "manual" | "close") {
     if (!snap) return;
@@ -183,11 +315,41 @@ export function SessionEditor({ sessionId }: { sessionId: string }) {
   const headerLabel = useMemo(() => snap?.displayName ?? `session ${sessionId}`, [snap, sessionId]);
 
   return (
-    <div className="session">
+    <div className={isDarkChrome ? "session chrome-dark" : "session"}>
       <div className="session-header">
-        <span className="path mono" title={headerLabel}>{headerLabel}</span>
+        <span className="path" title={headerLabel}>{headerLabel}</span>
         <span className={`status ${status}`}>{statusLabel(status, snap?.readonly)}</span>
         <div className="actions">
+          {isHtml && (
+            <div className="mode-toggle" role="group" aria-label="HTML view">
+              <button
+                className={htmlMode === "preview" ? "active" : ""}
+                aria-pressed={htmlMode === "preview"}
+                onClick={() => setHtmlMode("preview")}
+              >Preview</button>
+              <button
+                className={htmlMode === "source" ? "active" : ""}
+                aria-pressed={htmlMode === "source"}
+                onClick={() => setHtmlMode("source")}
+              >Source</button>
+            </div>
+          )}
+          {monacoVisible && (
+            <span className="theme-select-wrap">
+              <select
+                className="theme-select"
+                value={codeTheme}
+                onChange={(e) => setCodeTheme(e.target.value)}
+                title="Code editor theme"
+                aria-label="Code editor theme"
+              >
+                {CODE_THEMES.map((t) => (
+                  <option key={t.id} value={t.id}>{t.label}</option>
+                ))}
+              </select>
+            </span>
+          )}
+          {monacoVisible && <FontStepper value={codeFontSize} onChange={setCodeFontSize} />}
           <button onClick={handleReload} disabled={!snap}>Reload</button>
           <button
             onClick={handleSaveNow}
@@ -197,18 +359,29 @@ export function SessionEditor({ sessionId }: { sessionId: string }) {
           <button onClick={handleClose}>Close</button>
         </div>
       </div>
-      <div className="session-body">
+      <div className={isMarkdown ? "session-body" : "session-body code"}>
         {error && (
-          <div style={{ color: "var(--error)", marginBottom: 12 }}>
+          <div className="session-banner error">
             {error} <button onClick={() => setError(null)}>dismiss</button>
           </div>
         )}
         {info && (
-          <div style={{ color: "var(--ok)", marginBottom: 12 }}>
+          <div className="session-banner ok">
             {info} <button onClick={() => setInfo(null)}>dismiss</button>
           </div>
         )}
-        <div ref={hostRef} className="editor-host" />
+        <div
+          ref={hostRef}
+          className={isHtml && htmlMode === "preview" ? "editor-host hidden" : "editor-host"}
+        />
+        {isHtml && htmlMode === "preview" && (
+          <iframe
+            className="html-preview"
+            title="HTML preview"
+            sandbox="allow-scripts"
+            srcDoc={editorRef.current?.getMarkdown() ?? draftRef.current}
+          />
+        )}
       </div>
 
       {conflict && !mergeMode && (
@@ -323,6 +496,68 @@ function statusLabel(s: SessionStatus, ro?: boolean): string {
     case "conflict": return "Conflict";
     case "disconnected": return "Disconnected";
   }
+}
+
+/* ---------------- font-size stepper ---------------- */
+
+function FontStepper({
+  value,
+  onChange,
+}: {
+  value: number;
+  onChange: (px: number) => void;
+}) {
+  // Local draft string so the field can be cleared / half-typed without the
+  // value being clamped on every keystroke. Committed on blur and on Enter.
+  const [draft, setDraft] = useState(String(value));
+  useEffect(() => {
+    setDraft(String(value));
+  }, [value]);
+
+  function commit() {
+    const parsed = parseInt(draft, 10);
+    const next = Number.isFinite(parsed) ? clampFontSize(parsed) : value;
+    onChange(next);
+    setDraft(String(next));
+  }
+
+  return (
+    <div className="font-stepper" role="group" aria-label="Editor font size">
+      <button
+        onClick={() => onChange(clampFontSize(value - FONT_STEP))}
+        disabled={value <= FONT_MIN}
+        aria-label="Decrease font size"
+        title="Decrease font size"
+      >A&minus;</button>
+      <input
+        className="font-stepper-input"
+        type="text"
+        inputMode="numeric"
+        maxLength={3}
+        value={draft}
+        aria-label="Font size in pixels"
+        title="Font size — type a value, or use the buttons"
+        onChange={(e) => setDraft(e.target.value.replace(/[^0-9]/g, ""))}
+        onFocus={(e) => e.currentTarget.select()}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            commit();
+            e.currentTarget.blur();
+          } else if (e.key === "Escape") {
+            setDraft(String(value));
+            e.currentTarget.blur();
+          }
+        }}
+      />
+      <button
+        onClick={() => onChange(clampFontSize(value + FONT_STEP))}
+        disabled={value >= FONT_MAX}
+        aria-label="Increase font size"
+        title="Increase font size"
+      >A+</button>
+    </div>
+  );
 }
 
 /* ---------------- merge view ---------------- */
@@ -495,6 +730,12 @@ interface TyportEditor {
   setMarkdown(md: string): void;
   focus(): void;
   destroy(): void;
+  /** Code (Monaco) editor only — switch the Shiki theme at runtime. */
+  setTheme?(theme: string): void;
+  /** Code (Monaco) editor only — update the font size (px). */
+  setFontSize?(px: number): void;
+  /** Code (Monaco) editor only — force a re-layout. */
+  layout?(): void;
 }
 
 interface CreateEditorOptions {
