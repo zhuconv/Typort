@@ -5,6 +5,8 @@
 
 <p align="center"><strong>Read and edit remote files like they're local.</strong></p>
 
+<p align="center"><a href="https://zhuconv.github.io/Typort/"><strong>▶ Try the editor in your browser →</strong></a></p>
+
 https://github.com/user-attachments/assets/4414bd97-ca09-43d0-8231-05d5fcbf98fa
 
 `typort open <file>` — run it on any server you've SSH'd into, and the file opens
