@@ -58,8 +58,16 @@ export function DemoApp() {
   const [codeTheme, setCodeTheme] = useState<string>(readStoredCodeTheme);
   const [codeFontSize, setCodeFontSize] = useState<number>(readStoredFontSize);
   const [htmlMode, setHtmlMode] = useState<"preview" | "source">("preview");
-  // Bumped to re-render the HTML preview iframe after edits / a reset.
-  const [, forceRender] = useState(0);
+  // The HTML preview iframe's document — state, not a ref, so writing it
+  // actually re-renders the iframe. Reset to the sample's content the
+  // instant the sample changes (adjust-during-render below), so switching
+  // to an HTML file never briefly shows the file you came from.
+  const [previewDoc, setPreviewDoc] = useState(sample.content);
+  const [previewDocFor, setPreviewDocFor] = useState(sampleId);
+  if (previewDocFor !== sampleId) {
+    setPreviewDocFor(sampleId);
+    setPreviewDoc(sample.content);
+  }
 
   const hostRef = useRef<HTMLDivElement | null>(null);
   const editorRef = useRef<DemoEditor | null>(null);
@@ -178,7 +186,7 @@ export function DemoApp() {
   function resetSample() {
     editorRef.current?.setMarkdown(sample.content);
     draftRef.current = sample.content;
-    forceRender((n) => n + 1);
+    setPreviewDoc(sample.content);
   }
 
   return (
@@ -210,17 +218,18 @@ export function DemoApp() {
               <button
                 className={htmlMode === "preview" ? "active" : ""}
                 aria-pressed={htmlMode === "preview"}
-                onClick={() => setHtmlMode("preview")}
+                onClick={() => {
+                  // Capture the editor's current text before showing it.
+                  setPreviewDoc(editorRef.current?.getMarkdown() ?? draftRef.current);
+                  setHtmlMode("preview");
+                }}
               >
                 Preview
               </button>
               <button
                 className={htmlMode === "source" ? "active" : ""}
                 aria-pressed={htmlMode === "source"}
-                onClick={() => {
-                  setHtmlMode("source");
-                  forceRender((n) => n + 1);
-                }}
+                onClick={() => setHtmlMode("source")}
               >
                 Source
               </button>
@@ -267,7 +276,7 @@ export function DemoApp() {
             className="html-preview"
             title="HTML preview"
             sandbox="allow-scripts"
-            srcDoc={draftRef.current}
+            srcDoc={previewDoc}
           />
         )}
       </div>
