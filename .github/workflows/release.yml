@@ -1,0 +1,81 @@
+name: Release
+
+# Builds the macOS app and publishes a GitHub Release with a prebuilt .dmg,
+# so users can install Typort without a local Node/Rust toolchain.
+#
+# Cut a release by pushing a version tag:
+#   git tag v0.1.0 && git push origin v0.1.0
+# ...or run this workflow manually from the Actions tab (it creates the tag).
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to create (e.g. v0.1.0)"
+        required: true
+        default: v0.1.0
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve release tag
+        id: meta
+        run: echo "tag=${{ github.event.inputs.tag || github.ref_name }}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.2
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build app and draft the release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: apps/desktop
+          # Universal binary so one .dmg runs on both Apple Silicon and Intel.
+          args: --target universal-apple-darwin
+          tagName: ${{ steps.meta.outputs.tag }}
+          releaseName: Typort ${{ steps.meta.outputs.tag }}
+          # Draft so the build can be checked before users see it; publish
+          # from the Releases page (or `gh release edit <tag> --draft=false`).
+          releaseDraft: true
+          prerelease: false
+          releaseBody: |
+            Prebuilt **macOS** app — universal binary (Apple Silicon + Intel).
+
+            **Install:** open the `.dmg`, drag Typort into Applications. The
+            app is not code-signed yet, so clear the quarantine flag once with
+            `xattr -cr /Applications/Typort.app`, then launch it.
+
+            See the [README](https://github.com/zhuconv/Typort#quick-start) for
+            the remote-agent setup.
