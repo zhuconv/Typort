@@ -1,0 +1,61 @@
+/* Demo-only chrome. Everything else is reused from the desktop app's
+   styles.css — the .session* header, editor host, theme picker, etc. */
+
+.demo-brand {
+  flex-shrink: 0;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.01em;
+  color: var(--chrome-fg);
+}
+
+.demo-file {
+  flex-shrink: 0;
+}
+.demo-file .theme-select {
+  font-weight: 600;
+  min-width: 124px;
+}
+
+/* Sits in the header where the file path goes in the real app. */
+.demo-hint {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--chrome-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.demo-gh {
+  flex-shrink: 0;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  text-decoration: none;
+  padding: 6px 11px;
+  border-radius: 6px;
+  border: 1px solid var(--chrome-btn-border);
+  background: var(--chrome-btn-bg);
+  color: var(--chrome-fg);
+  transition: background-color 0.12s ease;
+}
+.demo-gh:hover {
+  background: var(--chrome-btn-hover);
+}
+
+/* Bare-textarea fallback if Monaco or open-typora fail to load. */
+.demo-fallback-textarea {
+  width: 100%;
+  height: 100%;
+  min-height: 60vh;
+  box-sizing: border-box;
+  border: none;
+  outline: none;
+  padding: 16px 24px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  resize: none;
+}

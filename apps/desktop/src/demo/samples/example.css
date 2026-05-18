@@ -1,0 +1,37 @@
+/* CSS — custom properties, responsive grid, a keyframe animation. */
+:root {
+  --gap: 1rem;
+  --radius: 12px;
+  --brand: oklch(62% 0.19 264);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--gap);
+  padding: var(--gap);
+}
+
+.card {
+  padding: var(--gap);
+  border-radius: var(--radius);
+  background: var(--brand);
+  color: white;
+  animation: rise 0.4s ease both;
+  transition: transform 0.2s ease;
+}
+
+.card:hover {
+  transform: translateY(-4px);
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

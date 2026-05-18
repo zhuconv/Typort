@@ -1,0 +1,22 @@
+{
+  "name": "typort",
+  "version": "0.1.0",
+  "description": "Read and edit remote files like they're local.",
+  "license": "MIT",
+  "keywords": ["editor", "ssh", "markdown", "tauri", "remote"],
+  "engines": {
+    "node": ">=20"
+  },
+  "editors": {
+    "markdown": "open-typora",
+    "code": "monaco",
+    "highlighting": "shiki"
+  },
+  "themes": ["github-dark", "github-light", "vitesse-dark", "vitesse-light"],
+  "safeSave": {
+    "atomic": true,
+    "hashCheck": "sha-256",
+    "conflictResolution": "side-by-side-diff"
+  },
+  "platforms": ["macOS"]
+}

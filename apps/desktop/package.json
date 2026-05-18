@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:demo": "vite build --config vite.demo.config.ts && mv demo-dist/demo.html demo-dist/index.html",
     "preview": "vite preview",
     "typecheck": "tsc -b --noEmit",
     "test": "vitest run",

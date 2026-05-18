@@ -5,6 +5,7 @@ node_modules/
 # Build artifacts
 dist/
 build/
+demo-dist/
 *.tsbuildinfo
 
 # Rust / Tauri

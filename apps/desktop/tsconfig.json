@@ -10,5 +10,7 @@
     "types": ["vite/client"]
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "src-tauri"]
+  // src/demo/samples holds raw, ?raw-imported sample files (.ts, .py, ...) —
+  // demo data, not program source, so tsc must not try to compile them.
+  "exclude": ["node_modules", "dist", "src-tauri", "src/demo/samples"]
 }
