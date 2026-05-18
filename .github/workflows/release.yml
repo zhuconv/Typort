@@ -1,11 +1,16 @@
 name: Release
 
-# Builds the macOS app and publishes a GitHub Release with a prebuilt .dmg,
-# so users can install Typort without a local Node/Rust toolchain.
+# Builds the macOS app and publishes a GitHub Release with prebuilt .dmg
+# installers — one per Mac architecture — so users can install Typort
+# without a local Node/Rust toolchain.
 #
 # Cut a release by pushing a version tag:
 #   git tag v0.1.0 && git push origin v0.1.0
 # ...or run this workflow manually from the Actions tab (it creates the tag).
+#
+# Typort's backend is macOS-only (see the README "Status" section), so the
+# matrix covers the two Mac architectures. Add Windows/Linux entries once
+# the app builds on those platforms.
 
 on:
   push:
@@ -23,7 +28,19 @@ permissions:
 
 jobs:
   release:
+    name: Build (${{ matrix.label }})
     runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      # Run the two builds sequentially: the first creates the draft
+      # release, the second appends its .dmg to it — no create-release race.
+      max-parallel: 1
+      matrix:
+        include:
+          - target: aarch64-apple-darwin
+            label: Apple Silicon
+          - target: x86_64-apple-darwin
+            label: Intel
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -46,12 +63,13 @@ jobs:
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-apple-darwin,x86_64-apple-darwin
+          targets: ${{ matrix.target }}
 
       - name: Cache Rust build
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: apps/desktop/src-tauri
+          key: ${{ matrix.target }}
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -60,13 +78,17 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Ad-hoc sign the bundle (no Apple Developer cert needed) so the
+          # .app is sealed and gets the cleaner "unverified developer"
+          # Gatekeeper prompt instead of a "damaged" error.
+          APPLE_SIGNING_IDENTITY: "-"
           # The frontend bundles Monaco + Shiki + ~35 TextMate grammars; the
           # default ~2 GB Node heap OOMs during `vite build`. Give it room.
           NODE_OPTIONS: --max-old-space-size=4096
         with:
           projectPath: apps/desktop
-          # Universal binary so one .dmg runs on both Apple Silicon and Intel.
-          args: --target universal-apple-darwin
+          # One .dmg per architecture, not a fat universal binary.
+          args: --target ${{ matrix.target }}
           tagName: ${{ steps.meta.outputs.tag }}
           releaseName: Typort ${{ steps.meta.outputs.tag }}
           # Draft so the build can be checked before users see it; publish
@@ -74,11 +96,11 @@ jobs:
           releaseDraft: true
           prerelease: false
           releaseBody: |
-            Prebuilt **macOS** app — universal binary (Apple Silicon + Intel).
+            Prebuilt **macOS** app — pick the `.dmg` for your Mac:
 
-            **Install:** open the `.dmg`, drag Typort into Applications. The
-            app is not code-signed yet, so clear the quarantine flag once with
-            `xattr -cr /Applications/Typort.app`, then launch it.
+            - **Apple Silicon** (M-series): `Typort_*_aarch64.dmg`
+            - **Intel**: `Typort_*_x64.dmg`
 
-            See the [README](https://github.com/zhuconv/Typort#quick-start) for
-            the remote-agent setup.
+            Open the `.dmg` and drag Typort into Applications. If macOS blocks the app, go to **System Preferences > Security & Privacy > Security** and click **Open Anyway** for Typort.
+
+            See the [README](https://github.com/zhuconv/Typort#quick-start) for the remote-agent setup.
