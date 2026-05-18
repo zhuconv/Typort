@@ -60,6 +60,9 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # The frontend bundles Monaco + Shiki + ~35 TextMate grammars; the
+          # default ~2 GB Node heap OOMs during `vite build`. Give it room.
+          NODE_OPTIONS: --max-old-space-size=4096
         with:
           projectPath: apps/desktop
           # Universal binary so one .dmg runs on both Apple Silicon and Intel.
