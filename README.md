@@ -5,10 +5,7 @@
 
 <p align="center"><strong>Read and edit remote files like they're local.</strong></p>
 
-<!-- Demo video: in GitHub's web README editor, drag the screencast .mp4 onto
-     the line below — GitHub uploads it and renders it inline as a player. -->
-
-<p align="center"><em>🎬 Demo — video coming soon</em></p>
+https://github.com/user-attachments/assets/4414bd97-ca09-43d0-8231-05d5fcbf98fa
 
 `typort open <file>` — run it on any server you've SSH'd into, and the file opens
 in a native editor on your own machine: Markdown as WYSIWYG, code in a real code
