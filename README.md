@@ -8,9 +8,9 @@
 https://github.com/user-attachments/assets/4414bd97-ca09-43d0-8231-05d5fcbf98fa
 
 `typort open <file>` — run it on any server you've SSH'd into, and the file opens
-in a native editor on your own machine: Markdown as WYSIWYG, code in a real code
-editor. Edits save straight back to the remote path; your shell prompt returns
-immediately.
+in a native editor on your own machine: Markdown as WYSIWYG, HTML preview, code in
+a real editor. Edits save straight back to the remote path; your shell prompt
+returns immediately.
 
 ```bash
 # on the server
@@ -29,6 +29,8 @@ $
 - **Code → a real editor** — every other file opens in Monaco, the editor that
   powers VS Code: true syntax highlighting for ~35 languages (real TextMate
   grammars via Shiki), minimap, multi-cursor, find & replace.
+- **HTML, rendered or source** — HTML files open with a toggle between a rendered
+  preview and the Monaco source editor.
 - **Themes & font size** — GitHub and Vitesse themes in light and dark; the whole
   window follows the editor theme. Font size is adjustable and remembered.
 - **Safe saves** — atomic write (`tmp + rename + fsync`), file mode and owner
