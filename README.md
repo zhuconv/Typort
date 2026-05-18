@@ -48,15 +48,31 @@ $
 
 ## Quick start
 
-**Local Mac (one time)** — build and install the app:
+**Local Mac (one time)** — install the app:
+
+1. Download the latest `Typort_*_universal.dmg` from the
+   [**Releases** page](https://github.com/zhuconv/Typort/releases/latest).
+2. Open the `.dmg` and drag **Typort** into your Applications folder.
+3. Typort isn't code-signed yet, so clear the quarantine flag the first time:
+
+   ```bash
+   xattr -cr /Applications/Typort.app && open /Applications/Typort.app
+   ```
+
+Typort lives in the menu bar; its Welcome window shows your auth token and the
+SSH tunnel command.
+
+<details>
+<summary>Or build it from source</summary>
+
+Requires Node ≥ 20, pnpm, and the Rust toolchain.
 
 ```bash
 git clone https://github.com/zhuconv/Typort.git ~/typort && cd ~/typort
 pnpm install && pnpm tauri:build && pnpm install:app
 ```
 
-Typort lives in the menu bar; its Welcome window shows your auth token and the
-SSH tunnel command.
+</details>
 
 **Remote server (one time)** — install the agent:
 
@@ -91,8 +107,6 @@ The remote `typort` agent reads the file, computes a SHA-256, and connects to a
 localhost WebSocket hub inside Typort.app. The hub opens an editor window and
 routes saves back to the agent, which does the actual remote disk I/O — your
 local app never reaches across the network beyond `127.0.0.1`.
-
-Design rationale and threat model: [`plan.md`](./plan.md).
 
 ## Status
 
