@@ -50,14 +50,13 @@ $
 
 **Local Mac (one time)** — install the app:
 
-1. Download the latest `Typort_*_universal.dmg` from the
-   [**Releases** page](https://github.com/zhuconv/Typort/releases/latest).
+1. From the [**Releases** page](https://github.com/zhuconv/Typort/releases/latest),
+   download the `.dmg` for your Mac — **`aarch64`** for Apple Silicon,
+   **`x64`** for Intel.
 2. Open the `.dmg` and drag **Typort** into your Applications folder.
-3. Typort isn't code-signed yet, so clear the quarantine flag the first time:
-
-   ```bash
-   xattr -cr /Applications/Typort.app && open /Applications/Typort.app
-   ```
+3. Typort isn't notarized, so macOS may block the first launch. If it does, go
+   to **System Preferences > Security & Privacy > Security** and click
+   **Open Anyway**.
 
 Typort lives in the menu bar; its Welcome window shows your auth token and the
 SSH tunnel command.
