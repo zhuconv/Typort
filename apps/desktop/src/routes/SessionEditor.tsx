@@ -74,10 +74,16 @@ export function SessionEditor({ sessionId }: { sessionId: string }) {
     () => !!snap && !isMarkdown && (!isHtml || htmlMode === "source"),
     [snap, isMarkdown, isHtml, htmlMode],
   );
-  // A dark editor theme needs dark window chrome too (header + native title bar).
+  // The window chrome (header + native title bar) follows the code theme on
+  // every non-markdown file — including HTML preview — so a dark-theme user
+  // gets dark chrome there too, consistent with their code windows. The
+  // previewed page renders however it renders, browser-style.
   const isDarkChrome = useMemo(
-    () => monacoVisible && CODE_THEMES.find((t) => t.id === codeTheme)?.dark === true,
-    [monacoVisible, codeTheme],
+    () =>
+      !!snap &&
+      !isMarkdown &&
+      CODE_THEMES.find((t) => t.id === codeTheme)?.dark === true,
+    [snap, isMarkdown, codeTheme],
   );
 
   // 1. Fetch session snapshot from Rust backend.
