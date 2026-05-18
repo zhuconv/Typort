@@ -56,6 +56,10 @@ const shikiEngine = createJavaScriptRegexEngine({ forgiving: true });
 
 let highlighterPromise: Promise<Highlighter> | null = null;
 const wiredLangs = new Set<string>();
+// The theme the editor should be showing. shikiToMonaco() force-applies the
+// highlighter's first loaded theme every time it runs, so we re-assert this
+// after each call.
+let activeTheme = "";
 
 /**
  * Shared Shiki highlighter — created with the themes only (fast: a few small
@@ -87,6 +91,9 @@ async function ensureLanguage(lang: string): Promise<void> {
     await hl.loadLanguage(lang as BundledLanguage);
   }
   shikiToMonaco(hl, monaco);
+  // shikiToMonaco() ends by calling setTheme(firstLoadedTheme); restore the
+  // theme the editor is actually meant to show.
+  if (activeTheme) monaco.editor.setTheme(activeTheme);
 }
 
 /** Comfortable line height for a given font size — keeps spacing airy as the
@@ -102,6 +109,7 @@ export async function createCodeEditor(
   // Wait only for the themes (fast). The editor is shown right away; the
   // grammar for `opts.language` is loaded in the background below.
   await getHighlighter();
+  activeTheme = opts.theme;
   if (opts.language !== "plaintext") {
     monaco.languages.register({ id: opts.language });
   }
@@ -150,7 +158,10 @@ export async function createCodeEditor(
       suppressChange = false;
     },
     focus: () => editor.focus(),
-    setTheme: (theme) => monaco.editor.setTheme(theme),
+    setTheme: (theme) => {
+      activeTheme = theme;
+      monaco.editor.setTheme(theme);
+    },
     setFontSize: (px) =>
       editor.updateOptions({ fontSize: px, lineHeight: lineHeightFor(px) }),
     layout: () => editor.layout(),
