@@ -1,0 +1,76 @@
+name: Demo
+
+# Builds the standalone in-browser editor demo (apps/desktop/demo.html) and
+# publishes it to GitHub Pages at https://zhuconv.github.io/Typort/.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/desktop/src/demo/**"
+      - "apps/desktop/src/lib/**"
+      - "apps/desktop/src/styles.css"
+      - "apps/desktop/demo.html"
+      - "apps/desktop/vite.demo.config.ts"
+      - "apps/desktop/package.json"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One Pages deployment at a time; a newer push supersedes an in-flight run.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.2
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build the demo
+        run: pnpm --filter @typort/desktop build:demo
+        env:
+          # Monaco + Shiki bundling OOMs the default ~2 GB Node heap.
+          NODE_OPTIONS: --max-old-space-size=4096
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+        with:
+          # Turn on Pages (workflow source) on the first run if it is off.
+          enablement: true
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/desktop/demo-dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
