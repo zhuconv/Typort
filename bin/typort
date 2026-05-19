@@ -8304,7 +8304,8 @@ OPTIONS for "open"
                          ~/.typort/typort.log)
   --readonly             open file as readonly (no save back)
   --hub <url>            hub HTTP URL (default ${DEFAULT_HUB_HTTP}, env TYPORT_HUB)
-  --token <token>        auth token (default env TYPORT_TOKEN)
+  --token <token>        auth token (default: env TYPORT_TOKEN; for a local
+                         hub, falls back to Typort Desktop's saved token)
   --insecure-no-tls      do not require TLS even if hub URL is not localhost
 
 ENV
@@ -8380,6 +8381,38 @@ function httpToWs(http) {
   if (http.startsWith("http://")) return "ws://" + http.slice("http://".length);
   return http;
 }
+function isLocalHub(hubHttp) {
+  let host;
+  try {
+    host = new URL(hubHttp).hostname;
+  } catch {
+    return false;
+  }
+  return host === "127.0.0.1" || host === "localhost" || host === "::1" || host === "[::1]";
+}
+function readDesktopToken() {
+  const path = desktopConfigPath();
+  if (!path) return void 0;
+  try {
+    const parsed = JSON.parse((0, import_node_fs2.readFileSync)(path, "utf8"));
+    return typeof parsed.token === "string" && parsed.token.length > 0 ? parsed.token : void 0;
+  } catch {
+    return void 0;
+  }
+}
+function desktopConfigPath() {
+  const APP_ID = "dev.typort.desktop";
+  const home = (0, import_node_os2.homedir)();
+  if (process.platform === "darwin") {
+    return (0, import_node_path3.join)(home, "Library", "Application Support", APP_ID, "config.json");
+  }
+  if (process.platform === "win32") {
+    const appData = process.env.APPDATA;
+    return appData ? (0, import_node_path3.join)(appData, APP_ID, "config.json") : void 0;
+  }
+  const xdg = process.env.XDG_CONFIG_HOME;
+  return (0, import_node_path3.join)(xdg || (0, import_node_path3.join)(home, ".config"), APP_ID, "config.json");
+}
 function tunnelHelpText(token) {
   const tokenLine = token ? `export TYPORT_TOKEN=${token}
 ` : `# (set TYPORT_TOKEN to the token shown in the Typort Desktop status window)
@@ -8401,11 +8434,14 @@ export TYPORT_TOKEN=...
 }
 async function doctor() {
   const hub = process.env.TYPORT_HUB ?? DEFAULT_HUB_HTTP;
-  const token = process.env.TYPORT_TOKEN;
+  const envToken = process.env.TYPORT_TOKEN;
+  const localToken = !envToken && isLocalHub(hub) ? readDesktopToken() : void 0;
   const dev = process.env.TYPORT_DEV_INSECURE === "1";
   console.log(`Hub URL:        ${hub}`);
   console.log(`Hub WS URL:     ${httpToWs(hub)}${AGENT_CONNECT_PATH}`);
-  console.log(`Auth token:     ${token ? "configured" : "missing"}`);
+  console.log(
+    `Auth token:     ${envToken ? "configured (TYPORT_TOKEN)" : localToken ? "configured (Typort Desktop config)" : "missing"}`
+  );
   console.log(`Dev insecure:   ${dev ? "yes (TYPORT_DEV_INSECURE=1)" : "no"}`);
   console.log(`Protocol vsn:   ${PROTOCOL_VERSION}`);
   console.log(`Node version:   ${process.version}`);
@@ -8461,6 +8497,9 @@ async function main(argv) {
     case "open": {
       const o = parsed.open;
       const dev = process.env.TYPORT_DEV_INSECURE === "1";
+      if (!o.token && isLocalHub(o.hubHttp)) {
+        o.token = readDesktopToken();
+      }
       if (!o.token && !dev) {
         process.stderr.write(
           "error: TYPORT_TOKEN is not set. Set it from Typort Desktop's status window or pass --token.\n  (You can bypass this for local dev with TYPORT_DEV_INSECURE=1.)\n"
