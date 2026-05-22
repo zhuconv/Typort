@@ -384,8 +384,19 @@ export function SessionEditor({ sessionId }: { sessionId: string }) {
           <iframe
             className="html-preview"
             title="HTML preview"
-            sandbox="allow-scripts"
+            // allow-same-origin is needed alongside allow-scripts so that
+            // contentWindow.focus() (below) actually transfers focus into
+            // the iframe — without it the iframe is an opaque origin and
+            // the call is silently no-op'd, leaving arrow keys / space
+            // stuck in the parent. The HTML being previewed is a file the
+            // user has chosen to open in the editor, so granting it same
+            // origin is the same trust they extend to any local file.
+            sandbox="allow-scripts allow-same-origin"
             srcDoc={editorRef.current?.getMarkdown() ?? draftRef.current}
+            // Take focus on load so keyboard handlers inside the preview
+            // (arrow keys, space, etc. — common in slide decks and demos)
+            // actually receive events.
+            onLoad={(e) => e.currentTarget.contentWindow?.focus()}
           />
         )}
       </div>
